@@ -247,6 +247,20 @@ describe('CreateMdoComponent', () => {
         })
     })
 
+    describe('nameFieldLabel', () => {
+        it('should return "Content Providers" when departmentName is "cbp-providers"', () => {
+            component.departmentName = 'cbp-providers'
+
+            expect(component.nameFieldLabel).toBe('Content Providers')
+        })
+
+        it('should return the departmentName as-is for other departments', () => {
+            component.departmentName = 'mdo'
+
+            expect(component.nameFieldLabel).toBe('mdo')
+        })
+    })
+
     describe('onCancel', () => {
         it('should navigate to directory with department parameter', () => {
             component.department = 'TestDept'

@@ -786,6 +786,27 @@ mat-header-row {
   font-size: 14px;
 }
 
+.action-cell button.mat-primary {
+  color: white !important;
+}
+
+.action-cell {
+  overflow: visible;
+  min-width: 0;
+}
+
+.action-cell .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@include breakpoint-xs {
+  .action-cell .btn {
+    font-size: 12px;
+    padding: 0 8px;
+  }
+}
+
 .upload-btn {
   width: 150px;
   border: 1px solid #DEDEDE;
