@@ -92,6 +92,13 @@ export class CreateMdoComponent implements OnInit {
   subTypeId!: any
   depts = ['Domain', 'Exact']
 
+  get nameFieldLabel(): string {
+    if (this.departmentName === 'cbp-providers') {
+      return 'Content Providers'
+    }
+    return this.departmentName
+  }
+
   disableCreateButton = false
   validationCreateButton = false
   disableStateCreateButton = false
