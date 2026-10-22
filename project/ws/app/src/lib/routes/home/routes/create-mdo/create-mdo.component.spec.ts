@@ -144,15 +144,15 @@ describe('CreateMdoComponent', () => {
         it('should create department successfully when form is valid and not updating', () => {
             component.isUpdate = false
             component.department = 'TestDept'
-            jest.spyOn(component.contentForm, 'value', 'get').mockReturnValue({
+            ;(component.contentForm as any).value = {
                 name: 'Test Department',
                 deptSubTypeId: '1'
-            })
+            }
 
             component.onSubmit()
 
             expect(mockCreateMdoService.createDepartment).toHaveBeenCalled()
-            expect(mockSnackBar.open).toHaveBeenCalledWith('Success')
+            expect(mockSnackBar.open).toHaveBeenCalledWith('Success', 'X', { duration: 5000 })
             expect(mockRouter.navigate).toHaveBeenCalled()
         })
 
@@ -160,15 +160,15 @@ describe('CreateMdoComponent', () => {
             component.isUpdate = true
             component.updateId = 1
             component.department = 'TestDept'
-            jest.spyOn(component.contentForm, 'value', 'get').mockReturnValue({
+            ;(component.contentForm as any).value = {
                 name: 'Test Department',
                 deptSubTypeId: '1'
-            })
+            }
 
             component.onSubmit()
 
             expect(mockCreateMdoService.updateDepartment).toHaveBeenCalled()
-            expect(mockSnackBar.open).toHaveBeenCalledWith('Success')
+            expect(mockSnackBar.open).toHaveBeenCalledWith('Success', 'X', { duration: 5000 })
             expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/directory'])
         })
 
@@ -212,6 +212,7 @@ describe('CreateMdoComponent', () => {
             const event = {
                 target: { value: 'Test Department' },
                 which: 65, // ASCII for 'A'
+                keyCode: 65, // ASCII for 'A'
                 preventDefault: jest.fn()
             }
 
