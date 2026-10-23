@@ -19,6 +19,7 @@ describe('CreateEventComponent', () => {
 	let mockProfileUtilService: jest.Mocked<ProfileV2UtillService>
 	let mockPipePublicURL: jest.Mocked<PipePublicURL>
 	let mockActivatedRoute: Partial<ActivatedRoute>
+	let mockLoaderService: any
 
 	beforeEach(() => {
 		mockMatDialog = {
@@ -34,6 +35,7 @@ describe('CreateEventComponent', () => {
 			uploadFile: jest.fn(),
 			createEvent: jest.fn(),
 			publishEvent: jest.fn(),
+			getSlwResourceTypeDetail: jest.fn().mockReturnValue(of({ slwResourceTypeDetails: [], eventTypeCert: {} })),
 		} as any
 
 		mockRouter = {
@@ -55,6 +57,10 @@ describe('CreateEventComponent', () => {
 		mockProfileUtilService = {
 			emailTransform: jest.fn(),
 		} as any
+
+		mockLoaderService = {
+			setLoaderState: jest.fn(),
+		}
 
 		mockPipePublicURL = {
 			transform: jest.fn(),
@@ -103,6 +109,7 @@ describe('CreateEventComponent', () => {
 			mockEventService as any,
 			mockProfileUtilService as any,
 			mockPipePublicURL as any,
+			mockLoaderService as any,
 		)
 
 		component.ngOnInit()
@@ -126,9 +133,9 @@ describe('CreateEventComponent', () => {
 			expect(control.valid).toBeFalsy()
 		})
 
-		it('should validate conference link with URL pattern', () => {
+		it('should validate conference link with YouTube URL pattern', () => {
 			const control = component.createEventForm.controls['conferenceLink']
-			control.setValue('https://valid-url.com/meeting')
+			control.setValue('https://www.youtube.com/watch?v=abc123')
 			expect(control.valid).toBeTruthy()
 
 			control.setValue('invalid-url')

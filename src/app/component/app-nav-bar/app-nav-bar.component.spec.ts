@@ -1,11 +1,12 @@
 import { SimpleChange, SimpleChanges } from '@angular/core'
 import { Router, NavigationStart, NavigationEnd } from '@angular/router'
 import { DomSanitizer } from '@angular/platform-browser'
-import { Subject } from 'rxjs'
+import { BehaviorSubject, Subject } from 'rxjs'
 
 import { AppNavBarComponent } from './app-nav-bar.component'
 import { ConfigurationsService } from '@sunbird-cb/utils-v2'
 import { CustomTourService } from '@sunbird-cb/collection'
+import { NavigationExternalService } from '../../services/navigation-external.service'
 
 describe('AppNavBarComponent', () => {
   // Mock class implementations with full observable support
@@ -55,6 +56,7 @@ describe('AppNavBarComponent', () => {
   let domSanitizer: MockDomSanitizer
   let tourService: MockTourService
   let router: MockRouter
+  let navigationSvc: { breadcrumnItems: BehaviorSubject<any> }
 
   beforeEach(() => {
     // Create new instances of mocks for each test
@@ -62,13 +64,15 @@ describe('AppNavBarComponent', () => {
     configService = new MockConfigurationsService()
     tourService = new MockTourService()
     domSanitizer = new MockDomSanitizer()
+    navigationSvc = { breadcrumnItems: new BehaviorSubject<any>(null) }
 
     // Create component with mocks
     component = new AppNavBarComponent(
       domSanitizer as unknown as DomSanitizer,
       configService as unknown as ConfigurationsService,
       tourService as unknown as CustomTourService,
-      router as unknown as Router
+      router as unknown as Router,
+      navigationSvc as unknown as NavigationExternalService,
     )
   })
 
@@ -122,6 +126,8 @@ describe('AppNavBarComponent', () => {
   it('should handle navigation events', () => {
     // Initialize component first
     component.ngOnInit()
+    // cancelTour only cancels when a popup tour exists
+    component.popupTour = { id: 'popup-tour' }
 
     // Test NavigationStart event
     router.events.next(new NavigationStart(1, '/test'))
@@ -234,6 +240,12 @@ describe('AppNavBarComponent', () => {
     expect(component.isTourGuideClosed).toBe(false)
   })
 
+  it('should update breadcrumbData when navigation service emits items', () => {
+    const items = [{ url: '/app/home', label: 'Home' }]
+    navigationSvc.breadcrumnItems.next(items)
+    expect(component.breadcrumbData).toEqual(items)
+  })
+
   it('should handle help menu restrictions', () => {
     // Set help menu as restricted
     configService.restrictedFeatures = new Set<string>(['helpNavBarMenu'])
@@ -243,7 +255,8 @@ describe('AppNavBarComponent', () => {
       domSanitizer as unknown as DomSanitizer,
       configService as unknown as ConfigurationsService,
       tourService as unknown as CustomTourService,
-      router as unknown as Router
+      router as unknown as Router,
+      navigationSvc as unknown as NavigationExternalService,
     )
 
     // Initialize component

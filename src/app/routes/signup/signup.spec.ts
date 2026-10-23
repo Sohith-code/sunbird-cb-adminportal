@@ -1,6 +1,6 @@
 import { SignupComponent } from './signup.component'
 import { SignupService } from './signup.service'
-import { of, Subscription, throwError } from 'rxjs'
+import { Subject, Subscription } from 'rxjs'
 
 // Mock dependencies
 jest.mock('./signup.service')
@@ -120,12 +120,16 @@ describe('SignupComponent', () => {
     })
 
     it('should call signup service and handle success', () => {
-      mockSignupService.signup.mockReturnValue(of({}))
+      const response$ = new Subject<any>()
+      mockSignupService.signup.mockReturnValue(response$.asObservable())
 
       component.onSubmit(mockForm)
 
       expect(component.uploadSaveData).toBe(true)
       expect(mockSignupService.signup).toHaveBeenCalledWith(mockForm.value)
+
+      response$.next({})
+      response$.complete()
 
       // After observable completes
       expect(mockForm.reset).toHaveBeenCalled()
@@ -135,12 +139,15 @@ describe('SignupComponent', () => {
 
     it('should handle error from signup service', () => {
       const errorResponse = { error: 'Error:Something went wrong' }
-      mockSignupService.signup.mockReturnValue(throwError(() => errorResponse))
+      const response$ = new Subject<any>()
+      mockSignupService.signup.mockReturnValue(response$.asObservable())
 
       component.onSubmit(mockForm)
 
       expect(component.uploadSaveData).toBe(true)
       expect(mockSignupService.signup).toHaveBeenCalledWith(mockForm.value)
+
+      response$.error(errorResponse)
 
       // After observable errors
       expect(mockForm.reset).not.toHaveBeenCalled()

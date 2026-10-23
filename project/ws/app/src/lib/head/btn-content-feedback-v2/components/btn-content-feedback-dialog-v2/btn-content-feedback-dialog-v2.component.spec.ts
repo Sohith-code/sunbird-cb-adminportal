@@ -1,5 +1,5 @@
 import { BtnContentFeedbackDialogV2Component } from './btn-content-feedback-dialog-v2.component'
-import { UntypedFormGroup, Validators } from '@angular/forms'
+import { UntypedFormGroup } from '@angular/forms'
 import { of, throwError } from 'rxjs'
 import { EFeedbackType, EFeedbackRole } from '../../models/feedback.model'
 
@@ -49,8 +49,10 @@ describe('BtnContentFeedbackDialogV2Component', () => {
             expect(component.singleFeedbackForm instanceof UntypedFormGroup).toBeTruthy()
 
             const positiveControl = component.feedbackForm.get('positive')
-            expect(positiveControl?.hasValidator(Validators.minLength(1))).toBeTruthy()
-            expect(positiveControl?.hasValidator(Validators.maxLength(2000))).toBeTruthy()
+            positiveControl?.setValue('a'.repeat(2000))
+            expect(positiveControl?.valid).toBeTruthy()
+            positiveControl?.setValue('a'.repeat(2001))
+            expect(positiveControl?.hasError('maxlength')).toBeTruthy()
         })
     })
 
@@ -163,6 +165,10 @@ describe('BtnContentFeedbackDialogV2Component', () => {
     })
 
     describe('submitFeedback', () => {
+        beforeEach(() => {
+            mockFeedbackService.submitContentFeedback.mockReturnValue(of({}))
+        })
+
         it('should submit both positive and negative feedback when both are valid', () => {
             const submitPositiveSpy = jest.spyOn(component, 'submitPositiveFeedback')
             const submitNegativeSpy = jest.spyOn(component, 'submitNegativeFeedback')

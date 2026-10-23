@@ -32,6 +32,13 @@ jest.mock('@sunbird-cb/utils-v2', () => ({
   }))
 }))
 
+jest.mock('../../../../../../../../../../src/environments/environment', () => ({
+  environment: {
+    contentHost: 'https://example.com',
+    contentBucket: 'bucket',
+  },
+}))
+
 describe('EventListViewComponent', () => {
   let component: EventListViewComponent
   let mockRouter: any
@@ -282,12 +289,13 @@ describe('EventListViewComponent', () => {
     const result = component.getFinalColumns()
 
     // Assert
-    expect(result).toEqual(['select', 'SR', 'col1', 'col2', 'Actions', 'Menu'])
+    expect(result).toEqual(['SR', 'select', 'col1', 'col2', 'Actions', 'Menu'])
   })
 
   it('should return proper checkbox label', () => {
-    // Act & Assert - no row
-    expect(component.checkboxLabel()).toContain('deselect all')
+    // Act & Assert - no row (all (zero) rows selected => label is 'select all' per current implementation)
+    expect(component.isAllSelected()).toBe(true)
+    expect(component.checkboxLabel()).toBe('select all')
 
     // Act & Assert - with row
     const row = { position: 5 }

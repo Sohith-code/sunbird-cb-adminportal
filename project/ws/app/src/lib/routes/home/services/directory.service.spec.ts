@@ -44,7 +44,7 @@ describe('DirectoryService', () => {
 
       const expectedRequest = {
         request: {
-          filters: { isTenant: true, status: 1 },
+          filters: { isTenant: true, status: 1, isCbp: true },
           query: queryText,
           limit: pagination.limit,
           offset: pagination.offset,
@@ -66,7 +66,7 @@ describe('DirectoryService', () => {
 
       const expectedRequest = {
         request: {
-          filters: { isTenant: true, status: 1 },
+          filters: { isTenant: true, status: 1, isCbp: true },
           sort_by: { createdDate: 'desc' },
           limit: pagination.limit,
           offset: pagination.offset,
@@ -107,6 +107,25 @@ describe('DirectoryService', () => {
     })
   })
 
+  describe('getAllDepartmentsKong (organisation)', () => {
+    it('should send orFilters for organisation tab without query', () => {
+      const pagination = { limit: 10, offset: 0 }
+      httpClient.post.mockReturnValue(of({}))
+
+      service.getAllDepartmentsKong('', pagination, 'organisation')
+
+      expect(httpClient.post).toHaveBeenCalledWith('/apis/proxies/v8/org/v1/search', {
+        request: {
+          filters: { isTenant: true, status: 1 },
+          orFilters: { isMdo: true, isAutonomousNgo: true },
+          sort_by: { createdDate: 'desc' },
+          limit: 10,
+          offset: 0,
+        },
+      })
+    })
+  })
+
   describe('getDepartmentTitles', () => {
     it('should call http.get with the correct endpoint', () => {
       const mockResponse = { data: 'some data' }
@@ -116,7 +135,7 @@ describe('DirectoryService', () => {
         expect(response).toEqual(mockResponse)
       })
 
-      expect(httpClient.get).toHaveBeenCalledWith('/apis/proxies/v8/data/v1/system/settings/get/orgTypeList')
+      expect(httpClient.get).toHaveBeenCalledWith('apis/proxies/v8/data/v1/system/settings/get/orgTypeList')
     })
   })
 
@@ -129,7 +148,7 @@ describe('DirectoryService', () => {
         expect(response).toEqual(mockResponse)
       })
 
-      expect(httpClient.get).toHaveBeenCalledWith('/apis/proxies/v8/data/v1/system/settings/get/orgTypeConfig')
+      expect(httpClient.get).toHaveBeenCalledWith('apis/proxies/v8/data/v1/system/settings/get/orgTypeConfig')
     })
   })
 })

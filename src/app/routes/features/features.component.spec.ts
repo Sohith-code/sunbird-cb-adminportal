@@ -133,7 +133,18 @@ describe('FeaturesComponent', () => {
     (component as any).filteredFeatures = jest.fn().mockReturnValue([])
 
     component.ngOnInit()
+    // the constructor notifies before ngOnInit subscribes, so emit again after init
+    tourGuideNotifier.next(true)
     expect(component.isTourGuideAvailable).toBe(true)
+  })
+
+  it('should not enable tour guide when tourGuide feature is restricted', () => {
+    (component as any).filteredFeatures = jest.fn().mockReturnValue([])
+    mockConfigService.restrictedFeatures = new Set(['tourGuide'])
+
+    component.ngOnInit()
+    tourGuideNotifier.next(true)
+    expect(component.isTourGuideAvailable).toBe(false)
   })
 
   it('should clear query control', () => {
@@ -142,10 +153,20 @@ describe('FeaturesComponent', () => {
   })
 
   it('should start tour and unsubscribe from response', () => {
-    // component.responseSubscription = of(null).subscribe()
+    const responseSubscription = of(null).subscribe()
+    const unsubscribeSpy = jest.spyOn(responseSubscription, 'unsubscribe')
+    ;(component as any).responseSubscription = responseSubscription
     component.startTour()
     expect(mockTourService.startTour).toHaveBeenCalled()
     expect(mockRespondService.unsubscribeResponse).toHaveBeenCalled()
+    expect(unsubscribeSpy).toHaveBeenCalled()
+  })
+
+  it('should start tour without unsubscribing when there is no response subscription', () => {
+    ;(component as any).responseSubscription = null
+    component.startTour()
+    expect(mockTourService.startTour).toHaveBeenCalled()
+    expect(mockRespondService.unsubscribeResponse).not.toHaveBeenCalled()
   })
 
   it('should open logout dialog', () => {

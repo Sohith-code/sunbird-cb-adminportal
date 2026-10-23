@@ -20,6 +20,7 @@ describe('DirectoryViewComponent', () => {
     beforeEach(() => {
         mockActivatedRoute = {
             params: of({ tab: 'mdo' }),
+            data: of({ profile: { data: [{ id: 'profile1' }] } }),
             parent: {
                 snapshot: {
                     data: {
@@ -75,10 +76,10 @@ describe('DirectoryViewComponent', () => {
     })
 
     it('should update currentFilter when route params change', () => {
+        jest.spyOn(console, 'log').mockImplementation()
         component.ngOnInit()
-        // component.route.params.subscribe(params => {
-        //     expect(component.currentFilter).toBe('mdo')
-        // })
+        expect(component.currentFilter).toBe('mdo')
+        expect(component.currentTab).toBe('mdo')
     })
 
     it('should call getAllDepartments on filter method', () => {
@@ -100,10 +101,10 @@ describe('DirectoryViewComponent', () => {
     })
 
     it('should navigate to role detail page on onRoleClick', () => {
-        const mockRole = { data: { id: '1', channel: 'test', mdo: 'testOrg', type: 'mdo' } }
+        const mockRole = { type: 'mdo', data: { id: '1', channel: 'test', mdo: 'testOrg', type: 'mdo' } }
         component.onRoleClick(mockRole)
-        expect(mockRouter.navigate).toHaveBeenCalledWith([
-            '/app/roles/1/users',
+        expect(mockRouter.navigate).toHaveBeenCalledWith(
+            ['/app/roles/1/users'],
             {
                 queryParams: {
                     currentDept: component.currentFilter,
@@ -112,9 +113,10 @@ describe('DirectoryViewComponent', () => {
                     orgName: mockRole.data.mdo,
                     tab: 'mdo',
                     subOrgType: '',
+                    organisationType: 0,
                 },
             },
-        ])
+        )
     })
 
     it('should call transformDate on date transformation', () => {

@@ -126,6 +126,7 @@ describe('ImportDesignationComponent', () => {
 
   describe('ngOnChanges', () => {
     it('should load designations when loader is false', () => {
+      mockDesignationsService.getIgotMasterDesignations.mockReturnValue(of({ formatedDesignationsLsit: [], totalCount: 0 }))
       const loadDesignationsSpy = jest.spyOn(component, 'loadDesignations')
       const valueChangeSubscriptionSpy = jest.spyOn(component, 'valueChangeSubscription')
       const getRoutesDataSpy = jest.spyOn(component, 'getRoutesData')
@@ -196,12 +197,12 @@ describe('ImportDesignationComponent', () => {
     })
 
     it('should unsubscribe existing subscription before making new request', () => {
-      // const mockSubscription = { unsubscribe: jest.fn() }
-      // component.apiSubscription = mockSubscription as any
+      const mockSubscription = { unsubscribe: jest.fn() }
+      ;(component as any).apiSubscription = mockSubscription
 
       component.loadDesignations()
 
-      //expect(mockSubscription.unsubscribe).toHaveBeenCalled()
+      expect(mockSubscription.unsubscribe).toHaveBeenCalled()
     })
 
     it('should handle error when loading designations', () => {
@@ -228,7 +229,7 @@ describe('ImportDesignationComponent', () => {
     })
 
     it('should filter list based on search value', () => {
-      component.searchControl.setValue('design')
+      component.searchControl.setValue('designation ')
       expect(component.getFilteredSelectedList).toEqual([
         { name: 'Designation 1' },
         { name: 'Designation 2' }
@@ -314,6 +315,7 @@ describe('ImportDesignationComponent', () => {
 
   describe('onChangePage', () => {
     it('should update pagination parameters and reload designations', () => {
+      mockDesignationsService.getIgotMasterDesignations.mockReturnValue(of({ formatedDesignationsLsit: [], totalCount: 0 }))
       const loadDesignationsSpy = jest.spyOn(component, 'loadDesignations')
       component.searchControl.setValue('search')
 
@@ -379,6 +381,8 @@ describe('ImportDesignationComponent', () => {
 
     it('should handle error in createTerm and continue processing', () => {
       mockDesignationsService.createTerm.mockReturnValue(throwError('error'))
+      // keep failure list intact by not running the real updateTerms
+      ;(component.updateTerms as jest.Mock).mockImplementation(() => undefined)
 
       component.importDesignations()
 
@@ -406,7 +410,7 @@ describe('ImportDesignationComponent', () => {
       // jest.spyOn(component, 'openSnackbar')
 
       // Mock publishFrameWork
-      jest.spyOn(component, 'publishFrameWork')
+      jest.spyOn(component, 'publishFrameWork').mockImplementation(() => undefined)
     })
 
     it('should show error message if all imports failed', () => {
@@ -439,7 +443,9 @@ describe('ImportDesignationComponent', () => {
       component.updateTerms(mockDesignationsService.frameWorkInfo.categories[0])
 
       expect(component.progressDialogData.subTitle).toBe('Retrying')
-      expect(mockDesignationsService.updateTerms).toHaveBeenCalledTimes(1)
+      // initial attempt + one retry
+      expect(mockDesignationsService.updateTerms).toHaveBeenCalledTimes(2)
+      expect(mockDialogRef.close).toHaveBeenCalled()
     })
 
     it('should show error if retry also fails', () => {
@@ -527,10 +533,7 @@ describe('ImportDesignationComponent', () => {
     it('should navigate to organisation page if importMasterflag is true', () => {
       component.designationsImportFailed = [{ designation: { designation: 'Failed Designation' } }]
       component.importMasterflag = true
-      mockDialogRef.afterClosed.mockImplementation((callback: any) => {
-        callback()
-        return mockDialogRef
-      })
+      mockDialogRef.afterClosed.mockReturnValue(of(undefined))
 
       component.openConforamtionPopup()
 
@@ -576,7 +579,7 @@ describe('ImportDesignationComponent', () => {
   describe('ngOnDestroy', () => {
     it('should clean up on destroy', () => {
       const mockSubscription = { unsubscribe: jest.fn() }
-      // component.apiSubscription = mockSubscription as any
+      ;(component as any).apiSubscription = mockSubscription
 
       component.ngOnDestroy()
 

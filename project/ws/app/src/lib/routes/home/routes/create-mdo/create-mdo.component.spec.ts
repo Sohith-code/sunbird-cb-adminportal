@@ -1,6 +1,6 @@
 import { CreateMdoComponent } from './create-mdo.component'
 import { of, Subject } from 'rxjs'
-import { UntypedFormGroup } from '@angular/forms'
+import { UntypedFormControl, UntypedFormGroup } from '@angular/forms'
 
 describe('CreateMdoComponent', () => {
     let component: CreateMdoComponent
@@ -137,7 +137,10 @@ describe('CreateMdoComponent', () => {
     describe('onSubmit', () => {
         beforeEach(() => {
 
-            component.contentForm = new UntypedFormGroup({})
+            component.contentForm = new UntypedFormGroup({
+                name: new UntypedFormControl('Test Department'),
+                deptSubTypeId: new UntypedFormControl('1'),
+            })
             jest.spyOn(component.contentForm, 'valid', 'get').mockReturnValue(true)
         })
 
@@ -152,6 +155,7 @@ describe('CreateMdoComponent', () => {
             component.onSubmit()
 
             expect(mockCreateMdoService.createDepartment).toHaveBeenCalled()
+            expect(mockSnackBar.open).toHaveBeenCalledWith('Success', 'X', { duration: 5000 })
             expect(mockSnackBar.open).toHaveBeenCalledWith('Success', 'X', { duration: 5000 })
             expect(mockRouter.navigate).toHaveBeenCalled()
         })
@@ -168,6 +172,7 @@ describe('CreateMdoComponent', () => {
             component.onSubmit()
 
             expect(mockCreateMdoService.updateDepartment).toHaveBeenCalled()
+            expect(mockSnackBar.open).toHaveBeenCalledWith('Success', 'X', { duration: 5000 })
             expect(mockSnackBar.open).toHaveBeenCalledWith('Success', 'X', { duration: 5000 })
             expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/directory'])
         })

@@ -1,35 +1,26 @@
 import { AllRequestComponent } from './all-request.component'
-import { MatDialog } from '@angular/material/dialog'
-import { MatSnackBar } from '@angular/material/snack-bar'
-import { Router } from '@angular/router'
-import { RequestServiceService } from '../request-service.service'
 import { of } from 'rxjs'
-
-jest.mock('@angular/router')
-jest.mock('@angular/material/dialog')
-jest.mock('@angular/material/snack-bar')
-jest.mock('../request-service.service')
 
 describe('AllRequestComponent', () => {
     let component: AllRequestComponent
-    let mockDialog: MatDialog
-    let mockSnackBar: MatSnackBar
-    let mockRouter: Router
-    let mockRequestService: RequestServiceService
+    let mockDialog: any
+    let mockSnackBar: any
+    let mockRouter: any
+    let mockRequestService: any
+    let mockSanitizer: any
 
     beforeEach(() => {
-        mockDialog = new MatDialog(null as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any) as unknown as MatDialog
-        mockSnackBar = new MatSnackBar(null as any, null as any, null as any, null as any, null as any, null as any) as unknown as MatSnackBar
-        mockRouter = {
-            navigate: jest.fn(),
-        } as unknown as Router
+        mockDialog = { open: jest.fn().mockReturnValue({ afterClosed: () => of(undefined) }) }
+        mockSnackBar = { open: jest.fn() }
+        mockRouter = { navigate: jest.fn() }
+        mockSanitizer = { bypassSecurityTrustHtml: jest.fn((html: string) => ({ safe: html })) }
         mockRequestService = {
-            getRequestList: jest.fn(),
+            getRequestList: jest.fn().mockReturnValue(of({})),
             markAsInvalid: jest.fn(),
-        } as unknown as RequestServiceService
+        }
 
         component = new AllRequestComponent(
-            {} as any, // DomSanitizer
+            mockSanitizer,
             mockRouter,
             mockRequestService,
             mockSnackBar,
@@ -37,33 +28,55 @@ describe('AllRequestComponent', () => {
         )
     })
 
+    afterEach(() => {
+        jest.useRealTimers()
+    })
+
     it('should create the component', () => {
         expect(component).toBeTruthy()
     })
 
-    it('should call getRequestList on ngOnInit', () => {
+    it('should call getRequestList and getStatusCount on ngOnInit', () => {
         const spy = jest.spyOn(component, 'getRequestList')
+        const spyCount = jest.spyOn(component, 'getStatusCount')
         component.ngOnInit()
         expect(spy).toHaveBeenCalled()
+        expect(spyCount).toHaveBeenCalled()
+    })
+
+    it('should populate request list data', () => {
+        mockRequestService.getRequestList.mockReturnValue(of({
+            data: [
+                { status: 'Unassigned', assignedProvider: { providerName: 'Prov' } },
+                { status: 'Assigned' },
+            ],
+            totalCount: 2,
+        }))
+        component.getRequestList()
+        expect(component.requestCount).toBe(2)
+        expect(component.requestListData[0].assignedProvider).toBe('Prov')
+        expect(component.isUnassigned).toBe(true)
+        expect(component.isAssigned).toBe(true)
+        expect(component.dataSource.data.length).toBe(2)
     })
 
     it('should set statusCards correctly in getStatusCount', () => {
-        // const mockResponse = {
-        //     facets: {
-        //         status: [
-        //             { value: 'Assigned', count: 5 },
-        //             { value: 'Invalid', count: 3 },
-        //         ],
-        //     },
-        // }
-        //mockRequestService.getRequestList.mockReturnValue(of(mockResponse))
+        mockRequestService.getRequestList.mockReturnValue(of({
+            facets: {
+                status: [
+                    { value: 'Assigned', count: 5 },
+                    { value: 'Invalid', count: 3 },
+                ],
+            },
+        }))
 
         component.getStatusCount()
 
         expect(component.statusCards.length).toBe(5)
         expect(component.statusCards).toEqual(expect.arrayContaining([
-            expect.objectContaining({ value: 'Assigned', count: 5 }),
+            expect.objectContaining({ value: 'Assigned', count: 5, message: 'Total number of requests assigned' }),
             expect.objectContaining({ value: 'Invalid', count: 3 }),
+            expect.objectContaining({ value: 'Fulfill', count: 0 }),
         ]))
     })
 
@@ -85,39 +98,65 @@ describe('AllRequestComponent', () => {
         expect(spy).not.toHaveBeenCalled()
     })
 
-    it('should navigate on openAssignlistPopup after dialog is closed', () => {
-        const mockItem = { demand_id: 123 }
-        const spyOpenDialog = jest.spyOn(mockDialog, 'open').mockReturnValue({
-            afterClosed: () => of({ data: 'confirmed' }),
-        } as any)
-
+    it('should refresh list and notify on openAssignlistPopup after dialog is confirmed', () => {
+        jest.useFakeTimers()
+        mockDialog.open.mockReturnValue({ afterClosed: () => of({ data: 'confirmed' }) })
         const spyGetRequestList = jest.spyOn(component, 'getRequestList')
-        const spySnackBar = jest.spyOn(mockSnackBar, 'open')
 
-        component.openAssignlistPopup(mockItem)
+        component.openAssignlistPopup({ demand_id: 123 })
 
-        expect(spyOpenDialog).toHaveBeenCalled()
+        expect(mockDialog.open).toHaveBeenCalled()
+        expect(mockSnackBar.open).toHaveBeenCalledWith('Assigned submitted Successfully')
+        jest.advanceTimersByTime(1000)
         expect(spyGetRequestList).toHaveBeenCalled()
-        expect(spySnackBar).toHaveBeenCalledWith('Assigned submitted Successfully')
     })
 
     it('should call invalidContent when confirmation popup returns "confirmed"', () => {
-        const mockItem = { demand_id: 123 }
-        const spyConfirmationDialog = jest.spyOn(mockDialog, 'open').mockReturnValue({
-            afterClosed: () => of('confirmed'),
-        } as any)
+        mockDialog.open.mockReturnValue({ afterClosed: () => of('confirmed') })
+        mockRequestService.markAsInvalid.mockReturnValue(of({ ok: true }))
         const spyInvalidContent = jest.spyOn(component, 'invalidContent')
 
-        component.showConformationPopUp(mockItem, 'invalidContent')
+        component.showConformationPopUp({ demand_id: 123 }, 'invalidContent')
 
-        expect(spyConfirmationDialog).toHaveBeenCalled()
-        expect(spyInvalidContent).toHaveBeenCalledWith(mockItem)
+        expect(mockDialog.open).toHaveBeenCalled()
+        expect(spyInvalidContent).toHaveBeenCalledWith({ demand_id: 123 })
+        expect(mockRequestService.markAsInvalid).toHaveBeenCalledWith({ demand_id: 123, newStatus: 'Invalid' })
+        expect(mockSnackBar.open).toHaveBeenCalledWith('Marked as Invalid')
     })
 
-    it('should sanitize html correctly', () => {
-        const dirtyHtml = '<div><script>alert("XSS")</script></div>'
+    it('should navigate for view and copy menu actions', () => {
+        component.onClickMenu({ demand_id: 1 }, 'viewContent')
+        expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/request-details'], { queryParams: { id: 1, name: 'view' } })
+        component.onClickMenu({ demand_id: 2 }, 'copyContent')
+        expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/request-details'], { queryParams: { id: 2, name: 'copy' } })
+    })
+
+    it('should open single reassign popup for non-broadcast requests', () => {
+        mockDialog.open.mockReturnValue({ afterClosed: () => of({ data: 'confirmed' }) })
+        const spy = jest.spyOn(component, 'openSingleReassignPopup')
+        component.onClickMenu({ requestType: 'Single' }, 'reAssignContent')
+        expect(spy).toHaveBeenCalled()
+        expect(mockSnackBar.open).toHaveBeenCalledWith('Re-assign submitted Successfully')
+    })
+
+    it('should update paging on page change', () => {
+        const spy = jest.spyOn(component, 'getRequestList')
+        component.onChangePage({ pageIndex: 2, pageSize: 20 })
+        expect(component.pageNo).toBe(2)
+        expect(component.pageSize).toBe(20)
+        expect(spy).toHaveBeenCalled()
+    })
+
+    it('should sanitize html via DomSanitizer', () => {
+        const dirtyHtml = '<div>hi</div>'
         const sanitizedHtml = component.sanitizeHtml(dirtyHtml)
+        expect(mockSanitizer.bypassSecurityTrustHtml).toHaveBeenCalledWith(dirtyHtml)
         expect(sanitizedHtml).toBeTruthy()
+    })
+
+    it('should return pointer events style based on status', () => {
+        expect(component.getPointerEventsStyle({ status: 'Assigned' })).toEqual({ 'pointer-events': 'auto' })
+        expect(component.getPointerEventsStyle({ status: 'Invalid' })).toEqual({ 'pointer-events': 'none' })
     })
 
     it('should return correct CSS class for status', () => {

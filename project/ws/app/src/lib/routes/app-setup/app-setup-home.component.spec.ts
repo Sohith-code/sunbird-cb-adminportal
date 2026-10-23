@@ -56,8 +56,7 @@ describe('AppSetupHomeComponent', () => {
     })
 
     it('should handle stepper selection change', () => {
-        // const event: StepperSelectionEvent = { selectedIndex: 3 }
-        // component.onChange(event)
+        component.onChange({ selectedIndex: 3 } as any)
         expect(component.currentIndex).toBe(3)
     })
 

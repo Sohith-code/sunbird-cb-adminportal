@@ -119,8 +119,8 @@ describe('BulkUploadComponent', () => {
         },
       };
 
-      (activatedRoute.data as Subject<any>).next(mockPageData)
-      component.ngOnInit()
+      component.ngOnInit();
+      (activatedRoute.data as Subject<any>).next({ pageData: mockPageData })
 
       expect(component.orgId).toBe('test-role-id')
       expect(component.bulkUploadFrameworkId).toBe('test-framework')
@@ -224,10 +224,13 @@ describe('BulkUploadComponent', () => {
   describe('cleanup', () => {
     it('should clear interval and unsubscribe on destroy', () => {
       jest.useFakeTimers()
+      const clearIntervalSpy = jest.spyOn(global, 'clearInterval')
       component.startTimer()
       component.ngOnDestroy()
 
-      expect(clearInterval).toHaveBeenCalled()
+      expect(clearIntervalSpy).toHaveBeenCalled()
+      clearIntervalSpy.mockRestore()
+      jest.useRealTimers()
     })
   })
 })

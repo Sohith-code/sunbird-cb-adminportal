@@ -1,3 +1,4 @@
+import { Subject } from 'rxjs'
 import { PublicHomeComponent } from './public-home.component'
 
 describe('PublicHomeComponent', () => {
@@ -32,23 +33,38 @@ describe('PublicHomeComponent', () => {
     expect(mockRouter.events.subscribe).toHaveBeenCalledTimes(1)
   })
 
-  it('should redirect to /public/logout if URL contains "public/home"', () => {
-    // Mock window.location.href
-    const originalLocation = global.location
-    // delete global.location // Delete default location object
-    const mockLocation = { href: '' } as Location
-    global.location = mockLocation
+  it('should attempt to redirect to /public/logout if URL contains "public/home"', () => {
+    // jsdom does not allow replacing window.location, so drive the real URL via history
+    // and observe jsdom's "navigation not implemented" report when href is assigned.
+    const events = new Subject<any>()
+    component = new PublicHomeComponent({ events } as any)
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    window.history.pushState({}, '', '/public/home')
 
-    // Set the mock URL to "public/home"
-    mockLocation.href = 'https://example.com/public/home'
-
-    // Call ngOnInit to trigger the redirect logic
     component.ngOnInit()
+    events.next({})
 
-    // Verify if window.location.href was set to /public/logout
-    expect(mockLocation.href).toBe('/public/logout')
+    const navigationAttempted = errorSpy.mock.calls.some(args =>
+      args.some((a: any) => String((a && a.message) || a).includes('navigation')))
+    expect(navigationAttempted).toBe(true)
 
-    // Restore the original location object after the test
-    global.location = originalLocation
+    errorSpy.mockRestore()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('should not redirect if URL does not contain "public/home"', () => {
+    const events = new Subject<any>()
+    component = new PublicHomeComponent({ events } as any)
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    window.history.pushState({}, '', '/app/home')
+
+    component.ngOnInit()
+    events.next({})
+
+    expect(errorSpy).not.toHaveBeenCalled()
+    expect(window.location.pathname).toBe('/app/home')
+
+    errorSpy.mockRestore()
+    window.history.pushState({}, '', '/')
   })
 })

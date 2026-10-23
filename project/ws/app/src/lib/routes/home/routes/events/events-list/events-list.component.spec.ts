@@ -118,17 +118,19 @@ describe('EventsListComponent', () => {
         })
     })
 
-    it('should fetch events on init', () => {
+    it('should fetch upcoming events on init', () => {
         component.ngOnInit()
         expect(mockEventsService.getEventsList).toHaveBeenCalledWith({
             locale: ['en'],
-            query: '',
             request: {
                 query: '',
+                limit: 20,
+                offset: 0,
                 filters: {
-                    status: ['Live', 'Retired'],
+                    status: ['Live'],
                     contentType: 'Event',
                     createdFor: 'test-org-id',
+                    endDateTime: { '>=': expect.any(String) },
                 },
                 sort_by: {
                     lastUpdatedOn: 'desc',
@@ -139,17 +141,15 @@ describe('EventsListComponent', () => {
 
     it('should format date correctly', () => {
         const date = '2023-01-01'
-        const time = '1000+0000'
+        const time = '10:00:00+05:30'
         const formattedDate = component.customDateFormat(date, time)
         expect(formattedDate).toMatch(/\d{1,2}(st|nd|rd|th) \w{3} \d{4} \d{2}:\d{2}/)
     })
 
-    it('should compare dates correctly', () => {
-        const pastDate = moment().subtract(1, 'day').format('YYYY-MM-DD HH:mm')
-        const futureDate = moment().add(1, 'day').format('YYYY-MM-DD HH:mm')
-
-        expect(component.compareDate(pastDate)).toBe(true)
-        expect(component.compareDate(futureDate)).toBe(false)
+    it('should format time in am/pm correctly', () => {
+        expect(component.formatTimeAmPm(new Date(2023, 0, 1, 0, 5))).toBe('12:05 am')
+        expect(component.formatTimeAmPm(new Date(2023, 0, 1, 13, 30))).toBe('1:30 pm')
+        expect(component.formatTimeAmPm(new Date(2023, 0, 1, 12, 0))).toBe('12:00 pm')
     })
 
     it('should format duration correctly', () => {
@@ -157,9 +157,9 @@ describe('EventsListComponent', () => {
             identifier: 'test-id',
             name: 'Test Event',
             startDate: '2023-01-01',
-            startTime: '1000+0000',
+            startTime: '10:00:00+05:30',
             endDate: '2023-01-01',
-            endTime: '1200+0000',
+            endTime: '12:00:00+05:30',
             createdOn: '2023-01-01T10:00:00.000Z',
             duration: 120,
             status: 'Live',
@@ -174,32 +174,33 @@ describe('EventsListComponent', () => {
         }
 
         component.setEventListData(events)
-        const processedEvent = component.eventData['upcomingEvents'][0]
+        expect(component.data.length).toBe(1)
+        const processedEvent = component.data[0]
         expect(processedEvent.eventDuration).toBe('2 hours')
+        expect(processedEvent.eventjoined).toBe(' --- ')
+        expect(processedEvent.identifier).toBe('test-id')
     })
 
     it('should filter events correctly', () => {
-        // Setup mock data
-        component.eventData = {
-            upcomingEvents: [{ id: 'upcoming1' }, { id: 'upcoming2' }],
-            pastEvents: [{ id: 'past1' }, { id: 'past2' }],
-            archiveEvents: [{ id: 'archive1' }]
-        }
-
-        // Test upcoming filter
-        component.filter('upcoming')
-        expect(component.currentFilter).toBe('upcoming')
-        expect(component.data).toEqual([{ id: 'upcoming1' }, { id: 'upcoming2' }])
-
         // Test past filter
         component.filter('past')
         expect(component.currentFilter).toBe('past')
-        expect(component.data).toEqual([{ id: 'past1' }, { id: 'past2' }])
+        let request = mockEventsService.getEventsList.mock.calls.pop()[0].request
+        expect(request.filters.status).toEqual(['Live'])
+        expect(request.filters.endDateTime).toEqual({ '<': expect.any(String) })
 
         // Test archive filter
         component.filter('archive')
         expect(component.currentFilter).toBe('archive')
-        expect(component.data).toEqual([{ id: 'archive1' }])
+        request = mockEventsService.getEventsList.mock.calls.pop()[0].request
+        expect(request.filters.status).toEqual(['Retired'])
+        expect(request.filters.endDateTime).toBeUndefined()
+
+        // Test upcoming filter
+        component.filter('upcoming')
+        expect(component.currentFilter).toBe('upcoming')
+        request = mockEventsService.getEventsList.mock.calls.pop()[0].request
+        expect(request.filters.endDateTime).toEqual({ '>=': expect.any(String) })
     })
 
     it('should handle menu actions correctly for archive', () => {
@@ -215,7 +216,7 @@ describe('EventsListComponent', () => {
         const mockRow = { identifier: 'test-id' }
         component.menuActions({ action: 'edit', row: mockRow })
 
-        expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/events/test-id/edit'], {})
+        expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/events/test-id/edit'], { queryParams: { filter: 'upcoming' } })
     })
 
     it('should handle telemetry correctly', () => {
@@ -235,27 +236,27 @@ describe('EventsListComponent', () => {
         // Event in progress (can't archive)
         const inProgressEvent = {
             startDate: pastDate,
-            startTime: '0000+0000',
+            startTime: '00:00:00+05:30',
             endDate: futureDate,
-            endTime: '2359+0000'
+            endTime: '23:59:00+05:30'
         }
         expect(component.canArchive(inProgressEvent)).toBe(false)
 
         // Past event (can archive)
         const pastEvent = {
             startDate: pastDate,
-            startTime: '0000+0000',
+            startTime: '00:00:00+05:30',
             endDate: pastDate,
-            endTime: '2359+0000'
+            endTime: '23:59:00+05:30'
         }
         expect(component.canArchive(pastEvent)).toBe(true)
 
         // Future event (can archive)
         const futureEvent = {
             startDate: futureDate,
-            startTime: '0000+0000',
+            startTime: '00:00:00+05:30',
             endDate: futureDate,
-            endTime: '2359+0000'
+            endTime: '23:59:00+05:30'
         }
         expect(component.canArchive(futureEvent)).toBe(true)
     })

@@ -70,23 +70,24 @@ describe('MobileAppHomeComponent', () => {
   })
 
   it('should unsubscribe from routeSubscription on ngOnDestroy', () => {
+    component.ngOnInit()
     const unsubscribeSpy = jest.spyOn(component.routeSubscription!, 'unsubscribe')
     component.ngOnDestroy()
     expect(unsubscribeSpy).toHaveBeenCalled()
   })
 
-  it('should correctly set isAndriod and isIos based on mobileService', () => {
-    // Simulate iOS app reference
-    // mobileService.iOsAppRef = true
-    // mobileService.isAndroidApp = false
+  it('should set isAndriod to false when running inside the iOS app', () => {
+    ;(mobileService as any).iOsAppRef = true
+    ;(mobileService as any).isAndroidApp = false
     component.ngOnInit()
 
     expect(component.isAndriod).toBe(false)
     expect(component.isIos).toBe(true)
+  })
 
-    // Simulate Android app
-    // mobileService.iOsAppRef = false
-    // mobileService.isAndroidApp = true
+  it('should set isIos to false when running inside the Android app', () => {
+    ;(mobileService as any).iOsAppRef = false
+    ;(mobileService as any).isAndroidApp = true
     component.ngOnInit()
 
     expect(component.isAndriod).toBe(true)

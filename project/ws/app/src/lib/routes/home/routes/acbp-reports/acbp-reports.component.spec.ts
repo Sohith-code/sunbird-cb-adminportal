@@ -21,6 +21,11 @@ describe('AcbpReportsComponent', () => {
     let snackBarMock: jest.Mocked<MatSnackBar>
     let dialogMock: jest.Mocked<MatDialog>
     let xhrMock: any
+    const originalXHR = global.XMLHttpRequest
+
+    afterEach(() => {
+        global.XMLHttpRequest = originalXHR
+    })
 
     // Sample data for tests
     const mockBuckets = [
@@ -50,7 +55,7 @@ describe('AcbpReportsComponent', () => {
             }
         }
 
-        // global.XMLHttpRequest = jest.fn().mockImplementation(() => xhrMock)
+        global.XMLHttpRequest = jest.fn().mockImplementation(() => xhrMock) as any
         global.window = Object.create(window)
         Object.defineProperty(window, 'location', {
             value: { href: '' },

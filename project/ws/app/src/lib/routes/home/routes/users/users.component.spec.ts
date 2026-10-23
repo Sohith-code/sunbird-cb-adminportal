@@ -1,28 +1,20 @@
 import { UsersComponent } from './users.component'
-import { ActivatedRoute } from '@angular/router'
-import { SystemRolesManagementService } from '../../services/system-roles-management.service'
-import { TenantAdminService } from '../../services/tenant-admin.service'
-import { of, } from 'rxjs'
-import { MatDialog } from '@angular/material/dialog'
-import { MatSnackBar } from '@angular/material/snack-bar'
-
-jest.mock('@angular/material/snack-bar')
-jest.mock('@angular/material/dialog')
-jest.mock('@angular/router')
-jest.mock('../../services/system-roles-management.service')
-jest.mock('../../services/tenant-admin.service')
+import { of, throwError } from 'rxjs'
 
 describe('UsersComponent', () => {
     let component: UsersComponent
-    let snackBar: MatSnackBar
-    let dialog: MatDialog
-    let activatedRoute: ActivatedRoute
-    let rolesSvc: SystemRolesManagementService
-    let tenantAdminSvc: TenantAdminService
+    let snackBar: any
+    let dialog: any
+    let activatedRoute: any
+    let rolesSvc: any
+    let tenantAdminSvc: any
+
+    const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0))
+    const user = { wid: '123', department_name: 'HR', email: '', first_name: '', last_name: '', root_org: '' } as any
 
     beforeEach(() => {
-        snackBar = new MatSnackBar(null as any, null as any, null as any, null as any, null as any, null as any)  // Mock instance
-        dialog = new MatDialog(null as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any) // Mock instance
+        snackBar = { open: jest.fn() }
+        dialog = { open: jest.fn() }
         activatedRoute = {
             parent: {
                 parent: {
@@ -30,19 +22,17 @@ describe('UsersComponent', () => {
                         featureData: {
                             data: {
                                 roleList: {
-                                    admin: {},
-                                    user: {},
+                                    admin: 'Admin role',
+                                    user: 'User role',
                                 },
                             },
                         },
                     }),
                 },
             },
-        } as any
-        rolesSvc = new SystemRolesManagementService(null as any)
-        tenantAdminSvc = new TenantAdminService(null as any)
-
-
+        }
+        rolesSvc = { checkUser: jest.fn() }
+        tenantAdminSvc = { getUserDepartments: jest.fn().mockReturnValue(Promise.resolve([])) }
 
         component = new UsersComponent(snackBar, dialog, activatedRoute, rolesSvc, tenantAdminSvc)
     })
@@ -52,42 +42,49 @@ describe('UsersComponent', () => {
     })
 
     it('should initialize role list from route data', () => {
-        component.ngOnInit()
         expect(component.roleList).toEqual(['admin', 'user'])
-        expect(Object.keys(component.rolesHash)).toEqual(['admin', 'user'])
+        expect(component.rolesHash['admin']).toEqual({ about: 'Admin role', hasRole: false, isSelected: false })
     })
 
-    it('should call getUserDepartments on ngOnInit', async () => {
-        const spy = jest.spyOn(tenantAdminSvc, 'getUserDepartments').mockResolvedValue([{ department_name: 'IT' }])
-        await component.getUserDepartments()
+    it('should call getUserDepartments on ngOnInit and collect department names', async () => {
+        tenantAdminSvc.getUserDepartments.mockResolvedValue([{ department_name: 'IT' }, { department_name: 'HR' }])
+        const spy = jest.spyOn(component, 'getUserDepartments')
+        component.ngOnInit()
+        await flushPromises()
         expect(spy).toHaveBeenCalled()
-        expect(component.departments).toEqual(['IT'])
+        expect(component.departments).toEqual(['IT', 'HR'])
+    })
+
+    it('should swallow errors while fetching departments', async () => {
+        tenantAdminSvc.getUserDepartments.mockReturnValue(Promise.reject('err'))
+        component.getUserDepartments()
+        await flushPromises()
+        expect(component.departments).toEqual([])
     })
 
     it('should add a user and emit selectedUser event', () => {
-        const user = { wid: '123', department_name: '', email: '', first_name: '', last_name: '', root_org: '', }
-        const mockRoles = { user_roles: ['admin'], default_roles: [] }
-        const spyCheckUser = jest.spyOn(rolesSvc, 'checkUser').mockReturnValue(of(mockRoles))
+        rolesSvc.checkUser.mockReturnValue(of({ user_roles: ['admin', 'unknown'], default_roles: [] }))
         const spyEmit = jest.spyOn(component.selectedUser, 'emit')
 
         component.addUser(user)
 
-        expect(spyCheckUser).toHaveBeenCalledWith(user.wid)
+        expect(rolesSvc.checkUser).toHaveBeenCalledWith(user.wid)
         expect(component.userDetails[user.wid].roles).toEqual(['admin'])
+        expect(component.userIds).toEqual(['123'])
+        expect(component.isAdding).toBe(false)
         expect(spyEmit).toHaveBeenCalledWith(user)
     })
 
     it('should handle error when adding user', () => {
-        const user = { wid: '123', department_name: '', email: '', first_name: '', last_name: '', root_org: '', }
-        //const spyCheckUser = jest.spyOn(rolesSvc, 'checkUser').mockReturnValue(throwError('Error'))
+        rolesSvc.checkUser.mockReturnValue(throwError('Error'))
 
         component.addUser(user)
 
         expect(component.isAdding).toBe(false)
+        expect(component.userDetails[user.wid]).toBeUndefined()
     })
 
     it('should remove a user from userDetails', () => {
-        const user = { wid: '123', department_name: '', email: '', first_name: '', last_name: '', root_org: '', }
         component.userDetails[user.wid] = { roles: ['admin'] }
         component.userIds = ['123']
 
@@ -98,32 +95,43 @@ describe('UsersComponent', () => {
     })
 
     it('should open roles dialog and handle dialog close with new roles', () => {
-        const wid = '123'
-        const mockRoles = { admin: { isSelected: false, hasRole: false, about: '' } }
-        component.rolesHash = mockRoles
-        const dialogRef = {
-            afterClosed: jest.fn().mockReturnValue(of({ wid, newRoles: ['admin'], addingError: false, removingError: false })),
-        }
-        const spyOpen = jest.spyOn(dialog, 'open').mockReturnValue(dialogRef as any)
-        const spySnackBar = jest.spyOn(snackBar, 'open')
+        component.userDetails['123'] = { roles: ['admin'] }
+        dialog.open.mockImplementation((_c: any, config: any) => {
+            expect(config.data.rolesData.admin.isSelected).toBe(true)
+            return { afterClosed: () => of({ wid: '123', newRoles: ['user'], addingError: false, removingError: false }) }
+        })
 
-        component.openDialog(wid)
+        component.openDialog('123')
 
-        expect(spyOpen).toHaveBeenCalled()
-        expect(spySnackBar).toHaveBeenCalledWith('Changes Saved', 'X', { duration: 2000 })
+        expect(dialog.open).toHaveBeenCalled()
+        expect(component.userDetails['123'].roles).toEqual(['user'])
+        expect(snackBar.open).toHaveBeenCalledWith('Changes Saved', 'X', { duration: 2000 })
+        expect(component.rolesHash.admin.isSelected).toBe(false)
+    })
+
+    it('should show error messages based on dialog result', () => {
+        component.userDetails['123'] = { roles: [] }
+        const results = [
+            [{ addingError: true, removingError: true }, 'Error Occured'],
+            [{ addingError: true, removingError: false }, 'Error Occured adding roles'],
+            [{ addingError: false, removingError: true }, 'Error Occured removing roles'],
+        ]
+        results.forEach(([flags, msg]: any) => {
+            dialog.open.mockReturnValue({ afterClosed: () => of({ wid: '123', newRoles: [], ...flags }) })
+            component.openDialog('123')
+            expect(snackBar.open).toHaveBeenLastCalledWith(msg, 'X', { duration: 2000 })
+        })
     })
 
     it('should open department dialog and update user department', () => {
-        const wid = '123'
-        const department = 'HR'
-        const dialogRef = {
-            afterClosed: jest.fn().mockReturnValue(of({ userId: wid, department: 'Finance' })),
-        }
-        const spyOpen = jest.spyOn(dialog, 'open').mockReturnValue(dialogRef as any)
+        component.userDetails['123'] = { ...user }
+        dialog.open.mockReturnValue({ afterClosed: () => of({ userId: '123', department: 'Finance' }) })
 
-        component.openDepartmentDialog(wid, department)
+        component.openDepartmentDialog('123', 'HR')
 
-        expect(spyOpen).toHaveBeenCalled()
-        expect(component.userDetails[wid].department_name).toBe('Finance')
+        expect(dialog.open).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+            data: { department: 'HR', userId: '123' },
+        }))
+        expect(component.userDetails['123'].department_name).toBe('Finance')
     })
 })

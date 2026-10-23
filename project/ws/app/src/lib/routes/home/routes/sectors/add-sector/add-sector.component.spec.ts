@@ -6,6 +6,7 @@ import { Router } from '@angular/router'
 import { ActivatedRoute } from '@angular/router'
 import { of, throwError } from 'rxjs'
 import { AddThumbnailComponent } from '../../add-thumbnail/add-thumbnail.component'
+import { environment } from '../../../../../../../../../../src/environments/environment'
 
 describe('AddSectorComponent', () => {
     let component: AddSectorComponent
@@ -14,6 +15,7 @@ describe('AddSectorComponent', () => {
     let mockSnackBar: jest.Mocked<MatSnackBar>
     let mockRouter: jest.Mocked<Router>
     let mockActivatedRoute: jest.Mocked<ActivatedRoute>
+    let mockSanitizer: any
 
     beforeEach(() => {
         mockSectorsService = {
@@ -50,13 +52,17 @@ describe('AddSectorComponent', () => {
             },
         } as any
 
+        mockSanitizer = {
+            bypassSecurityTrustResourceUrl: jest.fn((url: string) => url),
+        }
+
         component = new AddSectorComponent(
             mockDialog,
             mockRouter,
             mockSnackBar,
             mockSectorsService,
             mockActivatedRoute,
-            {} as any, // mock the sanitizer as it's not relevant for this test
+            mockSanitizer,
         )
     })
 
@@ -78,8 +84,10 @@ describe('AddSectorComponent', () => {
 
         component.onSubmit()
 
-        expect(component.isLoading).toBe(true)
-        expect(mockSectorsService.createSector).toHaveBeenCalled()
+        expect(component.isLoading).toBe(false)
+        expect(mockSectorsService.createSector).toHaveBeenCalledWith({
+            request: { name: 'New Sector', imgUrl: 'http://example.com/image.png' },
+        })
         expect(mockSnackBar.open).toHaveBeenCalledWith('Sector is successfuly created.')
         expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/sectors'])
     })
@@ -99,8 +107,9 @@ describe('AddSectorComponent', () => {
     })
 
     it('should generate a valid URL with generateUrl()', () => {
+        (environment as any).contentBucket = 'x/y/new-content-bucket'
         const oldUrl = 'https://old-url.com/path/to/file'
-        const expectedNewUrl = 'https://new-content-bucket/path/to/file'
+        const expectedNewUrl = 'https://new-content-bucket/x/y/new-content-bucket/to/file'
 
         const generatedUrl = component.generateUrl(oldUrl)
 
@@ -136,6 +145,24 @@ describe('AddSectorComponent', () => {
 
         const result = component.getUrl(url)
 
-        expect(result).toBe(url) // Assuming the getChangedArtifactUrl returns the sanitized URL directly
+        expect(mockSanitizer.bypassSecurityTrustResourceUrl).toHaveBeenCalledWith(url)
+        expect(result).toBe(url)
+    })
+
+    it('should return default logo from getUrl() when no artifact url', () => {
+        mockSectorsService.getChangedArtifactUrl.mockReturnValue('')
+        expect(component.getUrl('')).toBe('/assets/instances/eagle/app_logos/default.png')
+    })
+
+    it('should show generic error when createSector fails with non bad request', () => {
+        mockSectorsService.createSector.mockReturnValue(throwError({ statusText: 'Server Error', error: { responseCode: 'SERVER_ERROR' } }))
+        component.onSubmit()
+        expect(mockSnackBar.open).toHaveBeenCalledWith('Server Error', 'X', expect.any(Object))
+    })
+
+    it('should reject too large files on upload', () => {
+        const file = { name: 'big.png', size: 1024 * 1024 * 1024 } as any
+        component.uploadAppIcon(file)
+        expect(mockSnackBar.open).toHaveBeenCalledWith('Size is greater than allowed.')
     })
 })

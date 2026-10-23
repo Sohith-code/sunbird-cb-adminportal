@@ -4,7 +4,6 @@ import { RequestsService } from '../../services/onboarding-requests.service'
 import { of } from 'rxjs'
 import { RejectReasonDialogComponent } from '../reject-reason-dialog/reject-reason-dialog.component'
 import { DialogConfirmComponent } from '../../../../../../../../../src/app/component/dialog-confirm/dialog-confirm.component'
-import * as _ from 'lodash'
 import { MatDialog } from '@angular/material/dialog'
 import { MatSnackBar } from '@angular/material/snack-bar'
 
@@ -23,6 +22,21 @@ describe('RequestsApprovalComponent', () => {
         router = {
             navigate: jest.fn(),
             url: '/app/home/requests/position',
+            getCurrentNavigation: jest.fn(() => ({
+                extras: {
+                    state: {
+                        row: {
+                            serviceName: 'position',
+                            firstName: 'John',
+                            email: 'john.doe@example.com',
+                            mobile: '1234567890',
+                            position: 'Manager',
+                            description: 'Description',
+                            wfId: '1',
+                        },
+                    },
+                },
+            })),
         } as any
         activatedRoute = {
             snapshot: {
@@ -62,6 +76,31 @@ describe('RequestsApprovalComponent', () => {
 
     it('should create the component', () => {
         expect(component).toBeTruthy()
+        expect(component.requestType).toBe('position')
+        expect(component.positionForm.getRawValue().fullname).toBe('John')
+        expect(component.positionForm.value.position).toBe('Manager')
+    })
+
+    it('should prefill user details from config for new position route', () => {
+        (router as any).url = '/app/home/requests/new'
+        const comp = new RequestsApprovalComponent(snackBar, router, activatedRoute, requestService, dialogue)
+        expect(comp.newPosition).toBe(true)
+        expect(comp.requestType).toBe('position')
+        expect(comp.posData.mobile).toBe('1234567890')
+    })
+
+    it('should navigate back when approval dialog is cancelled', () => {
+        dialogue.open.mockReturnValueOnce({ afterClosed: jest.fn(() => of(false)) } as any)
+        component.onSubmit()
+        expect(requestService.approveNewPosition).not.toHaveBeenCalled()
+        expect(router.navigate).toHaveBeenCalledWith(['/app/home/requests/designation'])
+    })
+
+    it('should approve organisation requests', () => {
+        component.requestType = 'organisation'
+        component.onSubmit()
+        expect(requestService.approveNewOrg).toHaveBeenCalled()
+        expect(router.navigate).toHaveBeenCalledWith(['/app/home/requests/organisation'])
     })
 
     it('should call openSnackbar when onSubmit is successful', () => {

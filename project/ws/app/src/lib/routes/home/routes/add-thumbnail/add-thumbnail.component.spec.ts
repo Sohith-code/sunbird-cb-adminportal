@@ -5,6 +5,12 @@ import { SectorsService } from '../sectors/sectors.service'
 import { of, throwError } from 'rxjs'
 import { sectorConstants } from '../sectors/sectors-constats.model'
 
+jest.mock('../../../../../../../../../src/environments/environment', () => ({
+    environment: {
+        contentBucket: 'test-bucket',
+    },
+}))
+
 describe('AddThumbnailComponent', () => {
     let component: AddThumbnailComponent
     let mockSectorsService: jest.Mocked<SectorsService>
@@ -14,7 +20,7 @@ describe('AddThumbnailComponent', () => {
 
     beforeEach(() => {
         mockSectorsService = {
-            fetchImagesContent: jest.fn(),
+            fetchImagesContent: jest.fn().mockReturnValue(of({ result: { content: [] } })),
             getChangedArtifactUrl: jest.fn()
         } as any
 

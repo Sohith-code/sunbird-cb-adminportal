@@ -62,8 +62,20 @@ describe('ConfigureMarketplaceProvidersComponent', () => {
     describe('getProviderDetails', () => {
         it('should call getProviderDetails and set providerDetails', () => {
             const event = true
+            component.providerDetails = { id: '2' }
+            ;(marketPlaceSvc.getProviderDetails as jest.Mock).mockReturnValue(of({ result: { id: '2', name: 'updated' } }))
 
             component.getProviderDetails(event)
+
+            expect(marketPlaceSvc.getProviderDetails).toHaveBeenCalledWith('2')
+            expect(component.providerDetails).toEqual({ id: '2', name: 'updated' })
+            expect(component.disableCourseCatalog).toBe(false)
+        })
+
+        it('should not call service when event is falsy', () => {
+            component.providerDetails = { id: '2' }
+            component.getProviderDetails(false)
+            expect(marketPlaceSvc.getProviderDetails).not.toHaveBeenCalled()
         })
     })
 

@@ -5,6 +5,7 @@ import { DatePipe } from '@angular/common'
 import { MatDialog } from '@angular/material/dialog'
 import { MatSnackBar } from '@angular/material/snack-bar'
 import { MarketPlaceDashboardComponent } from './market-place-dashboard.component'
+import { GlobalEventsService } from '../../../../../../../../../../../src/app/services/global-events.service'
 
 describe('MarketPlaceDashboardComponent', () => {
     let component: MarketPlaceDashboardComponent
@@ -14,6 +15,7 @@ describe('MarketPlaceDashboardComponent', () => {
     const marketPlaceSvc: Partial<MarketplaceService> = {}
     const snackBar: Partial<MatSnackBar> = {}
     const datePipe: Partial<DatePipe> = {}
+    const loaderService: Partial<GlobalEventsService> = {}
 
     beforeAll(() => {
         component = new MarketPlaceDashboardComponent(
@@ -21,7 +23,8 @@ describe('MarketPlaceDashboardComponent', () => {
             router as Router,
             marketPlaceSvc as MarketplaceService,
             snackBar as MatSnackBar,
-            datePipe as DatePipe
+            datePipe as DatePipe,
+            loaderService as GlobalEventsService
         )
     })
 

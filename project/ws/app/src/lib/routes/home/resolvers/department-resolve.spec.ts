@@ -2,7 +2,7 @@ import { DepartmentResolve } from './department-resolve'
 import { ProfileV2Service } from '../services/home.servive'
 import { Router } from '@angular/router'
 import { AuthKeycloakService } from '@sunbird-cb/utils-v2'
-import { EMPTY } from 'rxjs'
+import { of, throwError } from 'rxjs'
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router'
 
 describe('DepartmentResolve', () => {
@@ -54,7 +54,7 @@ describe('DepartmentResolve', () => {
     }
 
     // Mock the profileService.checkValidLogin to return successful data
-    // profileServiceMock.checkValidLogin.mockResolvedValue(of(mockProfileData))
+    profileServiceMock.checkValidLogin.mockReturnValue(of(mockProfileData) as any)
 
     // Call the resolve method
     const result = await resolver.resolve(routeSnapshotMock, routerStateSnapshotMock)
@@ -77,7 +77,7 @@ describe('DepartmentResolve', () => {
 
   it('should navigate to error page and force logout when profile service throws an error', async () => {
     // Mock the profileService.checkValidLogin to throw an error
-    // profileServiceMock.checkValidLogin.mockResolvedValue(throwError('Error'))
+    profileServiceMock.checkValidLogin.mockReturnValue(throwError(new Error('Error')) as any)
 
     // Call the resolve method
     const result = await resolver.resolve(routeSnapshotMock, routerStateSnapshotMock)
@@ -95,14 +95,18 @@ describe('DepartmentResolve', () => {
     expect(resolvedData).toBeUndefined() // The observable should complete without emitting
   })
 
-  it('should return EMPTY when error occurs', async () => {
+  it('should complete without emitting (EMPTY) when error occurs', async () => {
     // Mock the profileService.checkValidLogin to throw an error
-    // profileServiceMock.checkValidLogin.mockResolvedValue(throwError('Error'))
+    profileServiceMock.checkValidLogin.mockReturnValue(throwError(new Error('Error')) as any)
 
     // Call the resolve method
     const result = await resolver.resolve(routeSnapshotMock, routerStateSnapshotMock)
 
-    // Verify that EMPTY is returned
-    expect(result).toBe(EMPTY)
+    // Verify that the returned observable completes without emitting (EMPTY)
+    const next = jest.fn()
+    let completed = false
+    result.subscribe({ next, complete: () => { completed = true } })
+    expect(next).not.toHaveBeenCalled()
+    expect(completed).toBe(true)
   })
 })

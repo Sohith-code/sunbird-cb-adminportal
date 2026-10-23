@@ -380,7 +380,7 @@ export class SearchServService {
           locale,
         },
         type: 'search',
-      },
+      } as any,
       from: 'search',
       to: 'telemetry',
     })

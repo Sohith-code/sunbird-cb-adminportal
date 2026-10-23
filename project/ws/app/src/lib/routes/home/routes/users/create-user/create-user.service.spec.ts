@@ -1,18 +1,13 @@
 import { CreateUserService } from './create-user.service'
-import { HttpClient } from '@angular/common/http'
 import { IUserForm } from '../users.model'
 import { of, throwError } from 'rxjs'
 
-jest.mock('@angular/common/http', () => ({
-  HttpClient: jest.fn(),
-}))
-
 describe('CreateUserService', () => {
   let service: CreateUserService
-  let httpClientMock: jest.Mocked<HttpClient>
+  let httpClientMock: any
 
   beforeEach(() => {
-    httpClientMock = new HttpClient(null as any) as jest.Mocked<HttpClient>
+    httpClientMock = { post: jest.fn() }
     service = new CreateUserService(httpClientMock)
   })
 
@@ -25,39 +20,35 @@ describe('CreateUserService', () => {
       username: 'testuser',
       email: 'testuser@example.com',
       org: '',
-      firstName: ''
+      firstName: '',
     }
 
     const keycloak = true
 
     it('should call http.post with the correct URL and data', () => {
-      // Arrange
       const apiUrl = `/apis/protected/v8/user/users/createuser?keycloak=${keycloak}`
       const mockResponse = { success: true }
       httpClientMock.post.mockReturnValue(of(mockResponse))
 
-      // Act
-      service.createUser(mockUserData, keycloak).subscribe((response) => {
-        // Assert
-        expect(httpClientMock.post).toHaveBeenCalledWith(apiUrl, mockUserData)
-        expect(response).toEqual(mockResponse)
-      })
+      let response: any
+      service.createUser(mockUserData, keycloak).subscribe(res => (response = res))
+
+      expect(httpClientMock.post).toHaveBeenCalledWith(apiUrl, mockUserData)
+      expect(response).toEqual(mockResponse)
     })
 
-    it('should handle error correctly when http.post fails', () => {
-      // Arrange
+    it('should propagate error when http.post fails', () => {
       const errorResponse = new Error('Something went wrong')
-      httpClientMock.post.mockReturnValue(throwError(() => errorResponse))
+      httpClientMock.post.mockReturnValue(throwError(errorResponse))
 
-      // Act & Assert
-      service.createUser(mockUserData, keycloak).subscribe({
-        next: () => {
-          // This should not be called
-        },
-        error: (error) => {
-          expect(error).toEqual(errorResponse)
-        },
+      let received: any
+      service.createUser(mockUserData, false).subscribe({
+        next: () => fail('should not emit'),
+        error: error => (received = error),
       })
+
+      expect(httpClientMock.post).toHaveBeenCalledWith('/apis/protected/v8/user/users/createuser?keycloak=false', mockUserData)
+      expect(received).toEqual(errorResponse)
     })
   })
 })

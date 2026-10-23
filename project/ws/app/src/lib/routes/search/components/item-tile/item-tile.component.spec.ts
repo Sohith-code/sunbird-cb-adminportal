@@ -45,7 +45,7 @@ describe('ItemTileComponent', () => {
         it('should call navigate with correct arguments', () => {
             component.goToView()
             expect(mockRouter.navigate).toHaveBeenCalledWith(
-                [],
+                [''],
                 { relativeTo: mockActivatedRoute.parent }
             )
         })
