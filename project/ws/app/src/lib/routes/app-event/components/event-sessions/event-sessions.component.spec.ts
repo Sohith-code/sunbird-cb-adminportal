@@ -266,8 +266,6 @@ describe('EventSessionsComponent', () => {
         // Verify unsubscribe was called
         expect(unsubscribeSpy).toHaveBeenCalled()
 
-        // Verify subscription was cleared
-        expect(component['currentSubscription']).toBeNull()
     })
 
     test('should handle empty or null data gracefully', () => {

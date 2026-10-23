@@ -1,76 +1,101 @@
 import { UIAdminUserTableComponent } from './ui-admin-user-table.component'
 import { MatDialog } from '@angular/material/dialog'
 import { MatSnackBar } from '@angular/material/snack-bar'
-import { Router } from '@angular/router'
+import { ActivatedRoute, Router } from '@angular/router'
 import { CreateMDOService as MDO2 } from '../../../routes/home/services/create-mdo.services'
 import { EventService } from '@sunbird-cb/utils-v2'
 import { of } from 'rxjs'
 
-jest.mock('@angular/router')
-jest.mock('@angular/material/dialog')
-jest.mock('@angular/material/snack-bar')
-jest.mock('../../../routes/home/services/create-mdo.services')
-jest.mock('@sunbird-cb/utils-v2')
-
 describe('UIAdminUserTableComponent', () => {
     let component: UIAdminUserTableComponent
-    let mockDialog: MatDialog
-    let mockSnackBar: MatSnackBar
-    let mockRouter: Router
-    let mockCreateMDOService2: MDO2
-    let mockEvents: EventService
+    let mockDialog: jest.Mocked<MatDialog>
+    let mockSnackBar: jest.Mocked<MatSnackBar>
+    let mockRouter: jest.Mocked<Router>
+    let mockActivatedRoute: ActivatedRoute
+    let mockCreateMDOService2: any
+    let mockEvents: jest.Mocked<EventService>
 
     beforeEach(() => {
-        // Create mock instances for dependencies
-        mockDialog = new MatDialog(null as any, null as any, null as any, null as any, null as any, null as any, null as any, null as any)
-        mockSnackBar = new MatSnackBar(null as any, null as any, null as any, null as any, null as any, null as any)
-        mockRouter = new Router()
-        mockCreateMDOService2 = new MDO2(null as any)
-        mockEvents = new EventService(null as any, null)
+        mockDialog = { open: jest.fn() } as any
+        mockSnackBar = { open: jest.fn() } as any
+        mockRouter = { navigate: jest.fn() } as any
+        mockActivatedRoute = {
+            snapshot: { parent: { data: { configService: { unMappedUser: { roles: ['MDO_ADMIN'] } } } } },
+            queryParams: of({
+                currentDept: 'state',
+                depatName: 'Dept',
+                orgName: 'Org',
+                roleId: 'dept-1',
+                path: 'users',
+                subOrgType: 'state',
+                organisationType: 1,
+            }),
+        } as any
+        mockCreateMDOService2 = {
+            searchedUserdata: of([{ userId: 'u1', organisations: [{ roles: ['PUBLIC'] }] }]),
+            assignAdminToDepartment: jest.fn().mockReturnValue(of({ ok: true })),
+        }
+        mockEvents = { raiseInteractTelemetry: jest.fn() } as any
 
-        // Initialize the component with mocked dependencies
         component = new UIAdminUserTableComponent(
             mockRouter,
             mockDialog,
-            null as any, // ActivatedRoute
-            mockCreateMDOService2,
+            mockActivatedRoute,
+            mockCreateMDOService2 as MDO2,
             mockEvents,
             mockSnackBar
         )
 
-        // Set any input properties needed for tests
         component.tableData = { columns: [], actions: [] } as any
         component.data = []
     })
 
     it('should create the component', () => {
         expect(component).toBeTruthy()
+        expect(component.isStateAdmin).toBe(false)
+    })
+
+    it('should set isStateAdmin when user has STATE_ADMIN role', () => {
+        (mockActivatedRoute as any).snapshot.parent.data.configService.unMappedUser.roles = ['STATE_ADMIN']
+        const cmp = new UIAdminUserTableComponent(
+            mockRouter, mockDialog, mockActivatedRoute, mockCreateMDOService2, mockEvents, mockSnackBar
+        )
+        expect(cmp.isStateAdmin).toBe(true)
     })
 
     it('should initialize with correct values on ngOnInit', () => {
         component.ngOnInit()
         expect(component.viewPaginator).toBe(true)
         expect(component.dataSource.data).toEqual([])
+        expect(component.departmentId).toBe('dept-1')
+        expect(component.needAddAdmin).toBe(true)
+        expect(component.needCreateUser).toBe(true)
     })
 
     it('should correctly apply filter when filterValue is provided', () => {
-        const filterValue = 'some value'
-        component.applyFilter(filterValue)
+        component.applyFilter('some value')
         expect(component.moreThanTwoChar).toBe(true)
+        component.applyFilter('so')
+        expect(component.moreThanTwoChar).toBe(false)
+    })
+
+    it('should emit empty search when filter is cleared', () => {
+        const emitSpy = jest.spyOn(component.searchByEnterKey, 'emit')
+        component.applyFilter('')
+        expect(emitSpy).toHaveBeenCalledWith('')
     })
 
     it('should emit actionsClick event on buttonClick', () => {
-        // const emitSpy = jest.spyOn(component.actionsClick, 'emit')
-        // const action = 'edit'
-        // const row = { id: 1 }
-        // component.buttonClick(action, row)
-        // expect(emitSpy).toHaveBeenCalledWith({ action, row })
+        const emitSpy = jest.spyOn(component.actionsClick!, 'emit')
+        const action = 'edit'
+        const row = { id: 1 }
+        component.buttonClick(action, row)
+        expect(emitSpy).toHaveBeenCalledWith({ action, row })
     })
 
-    it('should handle pagination on onChangePage', () => {
-        // const pageEvent = { pageIndex: 1, pageSize: 10 }
-        const emitSpy = jest.spyOn(component.paginationData, 'emit')
-        // component.onChangePage(pageEvent)
+    it('should emit search params on onChangePage', () => {
+        const emitSpy = jest.spyOn(component.searchByEnterKey, 'emit')
+        component.onChangePage({ pageIndex: 1, pageSize: 10, length: 100 })
         expect(emitSpy).toHaveBeenCalledWith({
             query: '',
             limit: 10,
@@ -78,35 +103,35 @@ describe('UIAdminUserTableComponent', () => {
         })
     })
 
-    it('should call openSnackbar when error occurs', () => {
-        //const openSnackbarSpy = jest.spyOn(component, 'openSnackbar')
-        // const errorMessage = 'Error occurred!'
-        //component.openSnackbar(errorMessage)
-        //expect(openSnackbarSpy).toHaveBeenCalledWith(errorMessage)
-    })
-
-    it('should call downloadUsersReport and initiate download', () => {
-        global.XMLHttpRequest = jest.fn(() => ({
+    it('should call downloadUsersReport and send request, showing snackbar on failure', () => {
+        const xhrMock: any = {
             readyState: 4,
-            status: 200,
-            onreadystatechange: jest.fn(),
+            status: 404,
+            onreadystatechange: null,
             open: jest.fn(),
             send: jest.fn(),
-        })) as any
+        }
+        const originalXhr = global.XMLHttpRequest
+        global.XMLHttpRequest = jest.fn(() => xhrMock) as any
 
-        const downloadUrl = 'http://example.com/user-report.zip'
-        const fileName = 'user-report'
+        component.departmentId = 'dept-1'
+        component.downloadUsersReport('user report')
 
-        component.downloadUsersReport(fileName)
-
-        // Check if the XMLHttpRequest was called
         expect(XMLHttpRequest).toHaveBeenCalled()
-        expect(window.location.href).toBe(downloadUrl)
+        expect(xhrMock.open).toHaveBeenCalledWith('GET', expect.stringContaining('dept-1/user-report-userReport.zip'))
+        expect(xhrMock.send).toHaveBeenCalled()
+
+        xhrMock.onreadystatechange()
+        expect(mockSnackBar.open).toHaveBeenCalledWith('Report is not available')
+
+        global.XMLHttpRequest = originalXhr
     })
 
-    it('should open a dialog when openPopup is called', () => {
-        const dialogRef = { afterClosed: jest.fn().mockReturnValue(of({ data: [] })) }
-        jest.spyOn(mockDialog, 'open').mockReturnValue(dialogRef as any)
+    it('should open a dialog when openPopup is called and assign admin', () => {
+        jest.useFakeTimers()
+        const dialogRef = { afterClosed: jest.fn().mockReturnValue(of({ data: [{ userId: 'u1' }] })) }
+        mockDialog.open.mockReturnValue(dialogRef as any)
+        component.ngOnInit()
 
         component.openPopup()
 
@@ -114,32 +139,45 @@ describe('UIAdminUserTableComponent', () => {
             expect.anything(),
             expect.objectContaining({ width: '80%', height: '65%' })
         )
+        expect(mockCreateMDOService2.assignAdminToDepartment).toHaveBeenCalledWith('u1', 'dept-1', ['PUBLIC', 'STATE_ADMIN'])
+        expect(mockSnackBar.open).toHaveBeenCalledWith('Admin assigned Successfully')
+        jest.useRealTimers()
     })
 
     it('should navigate to create-user on gotoCreateUser', () => {
-        const navigateSpy = jest.spyOn(mockRouter, 'navigate')
         component.gotoCreateUser()
-        expect(navigateSpy).toHaveBeenCalledWith(['/app/home/create-user'], expect.objectContaining({
+        expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/create-user'], expect.objectContaining({
             queryParams: expect.anything(),
         }))
     })
 
+    it('should map subOrgType correctly', () => {
+        component.subOrgType = 'Ministry'
+        expect(component.getSubOrgType()).toBe('mdo')
+        component.subOrgType = 'state'
+        expect(component.getSubOrgType()).toBe('state')
+        component.subOrgType = 'volunteer'
+        expect(component.getSubOrgType()).toBe('volunteer')
+        component.subOrgType = 'other'
+        expect(component.getSubOrgType()).toBe('cbp-providers')
+    })
+
     it('should raise telemetry when raiseTelemetry is called', () => {
-        const raiseInteractTelemetrySpy = jest.spyOn(mockEvents, 'raiseInteractTelemetry')
         const sub = 'button'
         component.raiseTelemetry(sub)
-        expect(raiseInteractTelemetrySpy).toHaveBeenCalledWith(
+        expect(mockEvents.raiseInteractTelemetry).toHaveBeenCalledWith(
             expect.objectContaining({
                 type: 'click',
                 subType: sub,
                 id: `${sub}-click`,
-            })
+            }),
+            {}
         )
     })
 
     it('should toggle row selection with masterToggle', () => {
         const row = { id: 1 }
-        component.selection.select(row)
+        component.dataSource.data = [row]
         component.masterToggle()
         expect(component.selection.isSelected(row)).toBe(true)
 
@@ -148,7 +186,7 @@ describe('UIAdminUserTableComponent', () => {
     })
 
     it('should return the correct label for checkbox with checkboxLabel', () => {
-        const row = { id: 1 }
+        const row = { id: 1, position: 0 }
         component.selection.select(row)
         expect(component.checkboxLabel(row)).toBe('deselect row 1')
     })

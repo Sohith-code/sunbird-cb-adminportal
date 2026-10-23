@@ -1,300 +1,184 @@
-import { EventListViewComponent } from './event-list-view.component'
+import { DesignationApprovalListViewComponent } from './designation-approval-list-view.component'
 import { MatTableDataSource } from '@angular/material/table'
-import { SimpleChange, SimpleChanges } from '@angular/core'
-import moment from 'moment'
+import { SimpleChange } from '@angular/core'
+import { Subject } from 'rxjs'
 
-// Mock dependencies
-jest.mock('@angular/router', () => ({
-  Router: jest.fn().mockImplementation(() => ({
-    navigate: jest.fn()
-  })),
-  ActivatedRoute: jest.fn().mockImplementation(() => ({
-    parent: {
-      snapshot: {
-        data: {
-          configService: {}
-        }
-      }
-    }
-  }))
-}))
-
-jest.mock('@angular/material/dialog', () => ({
-  MatDialog: jest.fn().mockImplementation(() => ({
-    open: jest.fn().mockReturnValue({})
-  })),
-  MAT_DIALOG_DATA: 'MAT_DIALOG_DATA'
-}))
-
-jest.mock('@sunbird-cb/utils-v2', () => ({
-  EventService: jest.fn().mockImplementation(() => ({
-    raiseInteractTelemetry: jest.fn()
-  }))
-}))
-
-describe('EventListViewComponent', () => {
-  let component: EventListViewComponent
+describe('DesignationApprovalListViewComponent', () => {
+  let component: DesignationApprovalListViewComponent
   let mockRouter: any
-  let mockMatDialog: any
-  let mockEventService: any
   let mockActivatedRoute: any
   let mockChangeDetectorRef: any
 
   beforeEach(() => {
-    // Initialize mocks
     mockRouter = { navigate: jest.fn() }
-    mockMatDialog = { open: jest.fn().mockReturnValue({}) }
-    mockEventService = { raiseInteractTelemetry: jest.fn() }
     mockActivatedRoute = {
-      parent: {
-        snapshot: {
-          data: {
-            configService: {}
-          }
-        }
-      }
+      parent: { snapshot: { data: { configService: { userProfile: { userId: 'u1' } } } } },
     }
     mockChangeDetectorRef = { detectChanges: jest.fn() }
 
-    // Create component instance
-    component = new EventListViewComponent(
-      mockRouter as any,
-      mockMatDialog as any,
-      mockEventService as any,
-      mockActivatedRoute as any,
-      mockChangeDetectorRef as any,
-      mockMatDialog as any // MAT_DIALOG_DATA content
+    component = new DesignationApprovalListViewComponent(
+      mockRouter,
+      mockActivatedRoute,
+      mockChangeDetectorRef,
+      {} as any,
     )
-
-    // Mock MatPaginator
-    component.paginator = {
-      firstPage: jest.fn(),
-      pageIndex: 0,
-      pageSize: 20,
-      length: 0
-    } as any
+    component.paginator = { page: new Subject<any>() } as any
   })
 
-  it('should create', () => {
+  it('should create and initialise defaults in constructor', () => {
     expect(component).toBeTruthy()
-  })
-
-  it('should initialize dataSource in constructor', () => {
     expect(component.dataSource).toBeInstanceOf(MatTableDataSource)
     expect(component.actionsClick).toBeDefined()
     expect(component.clicked).toBeDefined()
+    expect(component.configSvc).toEqual({ userProfile: { userId: 'u1' } })
   })
 
-  it('should set displayedColumns in ngOnInit when tableData is provided', () => {
-    // Arrange
-    const mockColumns = [{ key: 'col1' }, { key: 'col2' }]
-    component.tableData = { columns: mockColumns } as any
+  it('should set displayedColumns and data in ngOnInit', () => {
+    const cols = [{ displayName: 'Col 1', key: 'col1' }]
+    component.tableData = { columns: cols } as any
     component.data = [{ id: 1 }] as any
-
-    // Act
     component.ngOnInit()
-
-    // Assert
-    expect(component.displayedColumns).toEqual(mockColumns)
+    expect(component.displayedColumns).toEqual(cols)
     expect(component.dataSource.data).toEqual([{ id: 1 }])
   })
 
-  it('should update dataSource when data changes in ngOnChanges', () => {
-    // Arrange
+  it('should update dataSource and length on data change', () => {
     const newData = [{ id: 2 }, { id: 3 }]
-    const changes: SimpleChanges = {
-      data: new SimpleChange(null, newData, true)
-    }
-
-    // Act
-    component.ngOnChanges(changes)
-
-    // Assert
+    component.ngOnChanges({ data: new SimpleChange(null, newData, true) })
     expect(component.dataSource.data).toEqual(newData)
     expect(component.length).toBe(2)
-    expect(component.paginator.firstPage).toHaveBeenCalled()
   })
 
-  it('should apply filter to dataSource', () => {
-    // Arrange
+  it('should use totalCount for length when provided', () => {
+    component.ngOnChanges({
+      data: new SimpleChange(null, [{ id: 1 }], true),
+      totalCount: new SimpleChange(null, 50, true),
+    })
+    expect(component.length).toBe(50)
+  })
+
+  it('should emit page change from paginator after view init', () => {
+    const spy = jest.spyOn(component.pageChanged, 'emit')
+    component.ngAfterViewInit()
+    ;(component.paginator.page as any).next({ pageIndex: 2, pageSize: 30 })
+    expect(spy).toHaveBeenCalledWith({ pageIndex: 2, pageSize: 30 })
+  })
+
+  it('should filter using the custom filter predicate', () => {
+    component.ngAfterViewInit()
     component.dataSource.data = [
-      { eventName: 'test event' },
-      { eventName: 'another event' }
+      { designationName: 'Engineer', email: 'a@x.com' },
+      { designationName: 'Manager', email: 'b@x.com' },
     ]
-
-    // Act - with filter
-    component.applyFilter('test')
-
-    // Assert
-    expect(component.dataSource.filter).toBe('test')
-
-    // Act - with empty filter
+    component.applyFilter('Engineer')
+    expect(component.dataSource.filter).toBe('engineer')
+    expect(component.dataSource.filteredData.length).toBe(1)
     component.applyFilter('')
-
-    // Assert
     expect(component.dataSource.filter).toBe('')
   })
 
-  it('should emit action click event with row data', () => {
-    // Arrange
-    // const spy = jest.spyOn(component.actionsClick, 'emit')
+  it('should provide sorting data accessor for known properties', () => {
+    component.ngAfterViewInit()
+    const accessor = component.dataSource.sortingDataAccessor
+    expect(accessor({ designationName: 'ABC' }, 'designationName')).toBe('abc')
+    expect(accessor({ organisation: 'Org' }, 'organisation')).toBe('org')
+    expect(accessor({}, 'email')).toBe('')
+    expect(accessor({ other: 5 }, 'other')).toBe(5)
+    expect(accessor({ createdOn: '2023-01-01' }, 'createdOn')).toBeInstanceOf(Date)
+  })
+
+  it('should emit action click for enabled action only', () => {
+    const spy = jest.spyOn(component.actionsClick as any, 'emit')
     component.tableData = {
-      actions: [
-        { name: 'edit', disabled: false }
-      ]
+      columns: [],
+      actions: [{ name: 'edit', disabled: false }, { name: 'delete', disabled: true }],
     } as any
-    const row = { id: 1 }
-
-    // Act
-    component.buttonClick('edit', row)
-
-    // Assert
-    // expect(spy).toHaveBeenCalledWith({ action: 'edit', row })
+    component.buttonClick('edit', { id: 1 })
+    expect(spy).toHaveBeenCalledWith({ action: 'edit', row: { id: 1 } })
+    spy.mockClear()
+    component.buttonClick('delete', { id: 1 })
+    expect(spy).not.toHaveBeenCalled()
   })
 
-  it('should not emit action click event for disabled action', () => {
-    // Arrange
-    // const spy = jest.spyOn(component.actionsClick, 'emit')
-    // component.tableData = {
-    //   actions: [
-    //     { name: 'delete', disabled: true }
-    //   ]
-    // } as any
-    // const row = { id: 1 }
-
-    // // Act
-    // component.buttonClick('delete', row)
-
-    // // Assert
-    // expect(spy).not.toHaveBeenCalled()
+  it('should emit approve and reject actions', () => {
+    const spy = jest.spyOn(component.actionsClick as any, 'emit')
+    component.approveRequest({ id: 1 })
+    expect(spy).toHaveBeenCalledWith({ action: 'approve', row: { id: 1 } })
+    component.rejectRequest({ id: 2 })
+    expect(spy).toHaveBeenCalledWith({ action: 'reject', row: { id: 2 } })
   })
 
-  it('should format event start date correctly', () => {
-    // Arrange
-    const date = '2023-01-10'
-    const time = '14:30:00+05:30'
-
-    // Act
-    const result = component.customDateFormat(date, time)
-
-    // Assert
-    expect(result).toBeInstanceOf(Date)
-    expect(moment(result).format('YYYY-MM-DD HH:mm')).toBe('2023-01-10 14:30')
+  it('should return date objects from date format helpers', () => {
+    expect(component.customDateFormat('2023-01-10', '14:30:00+05:30')).toBeInstanceOf(Date)
+    expect(component.allEventDateFormat('2023-01-15T10:30:00.000Z')).toBeInstanceOf(Date)
   })
 
-  it('should format general event date correctly', () => {
-    // Arrange
-    const dateTime = '2023-01-15T10:30:00.000Z'
-
-    // Act
-    const result = component.allEventDateFormat(dateTime)
-
-    // Assert
-    expect(result).toBeInstanceOf(Date)
-  })
-
-  it('should navigate to create event page when onCreateClick is called', () => {
-    // Act
+  it('should navigate to create event page', () => {
     component.onCreateClick()
-
-    // Assert
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/events/create-event'])
-    expect(mockEventService.raiseInteractTelemetry).toHaveBeenCalled()
   })
 
   it('should emit row click event', () => {
-    // Arrange
     const spy = jest.spyOn(component.eOnRowClick, 'emit')
-    const row = { id: 1 }
-
-    // Act
-    component.onRowClick(row)
-
-    // Assert
-    expect(spy).toHaveBeenCalledWith(row)
+    component.onRowClick({ id: 1 })
+    expect(spy).toHaveBeenCalledWith({ id: 1 })
   })
 
   it('should toggle selection correctly', () => {
-    // Arrange
     component.dataSource.data = [{ id: 1 }, { id: 2 }]
     expect(component.isAllSelected()).toBe(false)
-
-    // Act - select all
     component.masterToggle()
-
-    // Assert
     expect(component.selection.selected.length).toBe(2)
-    expect(component.isAllSelected()).toBe(true)
-
-    // Act - deselect all
     component.masterToggle()
-
-    // Assert
     expect(component.selection.selected.length).toBe(0)
-    expect(component.isAllSelected()).toBe(false)
   })
 
-  it('should open image dialog with correct URL for regular image', () => {
-    // Arrange
-    const img = '/content/images/event.jpg'
-    const environment = {
-      contentHost: 'https://example.com',
-      contentBucket: 'bucket'
-    };
-    (global as any).environment = environment
-
-    // Act
-    component.showImageDialog(img)
-
-    // Assert
-    expect(component.finalImg).toBe('https://example.com/bucket/content/images/event.jpg')
-    expect(mockMatDialog.open).toHaveBeenCalled()
+  it('should build image url for default and regular images', () => {
+    component.showImageDialog('/content/Events_default/default.jpg')
+    expect(component.finalImg).toContain('/Events_default/default.jpg')
+    component.showImageDialog('/content/images/event.jpg')
+    expect(component.finalImg).toContain('/content/images/event.jpg')
   })
 
-  it('should open image dialog with correct URL for default image', () => {
-    // Arrange
-    const img = '/content/Events_default/default.jpg'
-    const environment = {
-      contentHost: 'https://example.com',
-      contentBucket: 'bucket'
-    };
-    (global as any).environment = environment
-
-    // Act
-    component.showImageDialog(img)
-
-    // Assert
-    expect(component.finalImg).toBe('https://example.com/Events_default/default.jpg')
-    expect(mockMatDialog.open).toHaveBeenCalled()
-  })
-
-  it('should return proper column configuration', () => {
-    // Arrange
+  it('should return final column configuration', () => {
     component.tableData = {
       columns: [{ key: 'col1' }, { key: 'col2' }],
       needCheckBox: true,
       needHash: true,
       actions: [{ name: 'edit' }],
-      needUserMenus: true
+      needUserMenus: true,
     } as any
-
-    // Act
-    const result = component.getFinalColumns()
-
-    // Assert
-    expect(result).toEqual(['select', 'SR', 'col1', 'col2', 'Actions', 'Menu'])
+    expect(component.getFinalColumns()).toEqual(['SR', 'select', 'col1', 'col2', 'Actions', 'Menu'])
+    component.tableData = undefined
+    expect(component.getFinalColumns()).toBe('')
   })
 
   it('should return proper checkbox label', () => {
-    // Act & Assert - no row
-    expect(component.checkboxLabel()).toContain('deselect all')
-
-    // Act & Assert - with row
+    component.dataSource.data = [{ position: 5 }]
     const row = { position: 5 }
-    expect(component.checkboxLabel(row)).toContain('select row 6')
-
-    // Select row and check label
+    expect(component.checkboxLabel(row)).toBe('select row 6')
     component.selection.select(row)
-    expect(component.checkboxLabel(row)).toContain('deselect row 6')
+    expect(component.checkboxLabel(row)).toBe('deselect row 6')
+  })
+
+  it('should allow update for non-upcoming filters and past upcoming events', () => {
+    component.currentFilter = 'past'
+    expect(component.allowUpdateEvent({})).toBe(true)
+    component.currentFilter = 'upcoming'
+    expect(component.allowUpdateEvent({ startDate: '2000-01-01', startTime: '10:00:00+05:30' })).toBe(false)
+    expect(component.allowUpdateEvent({ startDate: '2999-01-01', startTime: '10:00:00+05:30' })).toBe(true)
+  })
+
+  it('should open and close rejection popup', () => {
+    component.openRejecttionCommentPopup({ id: 1 })
+    expect(component.showRejectPopupFlag).toBe(true)
+    expect(component.rejectionDetail).toEqual({ id: 1 })
+    component.closeRejectPopup()
+    expect(component.showRejectPopupFlag).toBe(false)
+  })
+
+  it('should call detectChanges after view checked', () => {
+    component.ngAfterViewChecked()
+    expect(mockChangeDetectorRef.detectChanges).toHaveBeenCalled()
   })
 })

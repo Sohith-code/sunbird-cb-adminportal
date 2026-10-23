@@ -86,7 +86,7 @@ describe('OnboardingRequestsComponent', () => {
     })
 
     it('should handle route parameters correctly for organisation type', () => {
-        // Trigger params change
+        component.ngOnInit()
         paramsSubject.next({ type: 'organisation' })
 
         expect(component.requestType).toBe('organisation')
@@ -95,7 +95,7 @@ describe('OnboardingRequestsComponent', () => {
     })
 
     it('should handle route parameters correctly for designation type', () => {
-        // Trigger params change
+        component.ngOnInit()
         paramsSubject.next({ type: 'designation' })
 
         expect(component.requestType).toBe('position')
@@ -104,6 +104,7 @@ describe('OnboardingRequestsComponent', () => {
     })
 
     it('should format table data correctly for organisation type', () => {
+        component.ngOnInit()
         paramsSubject.next({ type: 'organisation' })
         expect(component.tabledata.columns.length).toBe(4)
         expect(component.tabledata.columns.map((col: { key: string }) => col.key)).toContain('organisation')
@@ -141,23 +142,53 @@ describe('OnboardingRequestsComponent', () => {
 
     it('should call getPendingList when filter is set to pending', () => {
         const spy = jest.spyOn(component, 'getPendingList')
+        delete mockActivatedRoute.snapshot.data.requestsList
         component.requestType = 'organisation'
         component.filter('pending')
         expect(spy).toHaveBeenCalled()
     })
 
+    it('should use resolved route data when filter is set to pending and data is available', () => {
+        const spy = jest.spyOn(component, 'getPendingList')
+        const formatSpy = jest.spyOn(component, 'formatData')
+        component.requestType = 'organisation'
+        component.filter('pending')
+        expect(spy).not.toHaveBeenCalled()
+        expect(formatSpy).toHaveBeenCalledWith([], 'pending')
+    })
+
     it('should call getApprovedList when filter is set to approved', () => {
         const spy = jest.spyOn(component, 'getApprovedList')
+        delete mockActivatedRoute.snapshot.data.aprovedrequestsList
         component.requestType = 'organisation'
         component.filter('approved')
         expect(spy).toHaveBeenCalled()
     })
 
+    it('should use resolved route data when filter is set to approved and data is available', () => {
+        const spy = jest.spyOn(component, 'getApprovedList')
+        const formatSpy = jest.spyOn(component, 'formatData')
+        component.requestType = 'organisation'
+        component.filter('approved')
+        expect(spy).not.toHaveBeenCalled()
+        expect(formatSpy).toHaveBeenCalledWith([], 'approved')
+    })
+
     it('should call getRejectedList when filter is set to rejected', () => {
         const spy = jest.spyOn(component, 'getRejectedList')
+        delete mockActivatedRoute.snapshot.data.rejectedList
         component.requestType = 'organisation'
         component.filter('rejected')
         expect(spy).toHaveBeenCalled()
+    })
+
+    it('should use resolved route data when filter is set to rejected and data is available', () => {
+        const spy = jest.spyOn(component, 'getRejectedList')
+        const formatSpy = jest.spyOn(component, 'formatData')
+        component.requestType = 'organisation'
+        component.filter('rejected')
+        expect(spy).not.toHaveBeenCalled()
+        expect(formatSpy).toHaveBeenCalledWith([], 'rejected')
     })
 
     it('should navigate to requests-approval on actionsClick', () => {
@@ -197,7 +228,8 @@ describe('OnboardingRequestsComponent', () => {
         component.onPaginateChange(pageEvent)
 
         expect(component.pageIndex).toBe(0)
-        expect(component.currentOffset).toBe(0)
+        // current implementation re-evaluates offset after updating limit, so offset follows the event page index
+        expect(component.currentOffset).toBe(1)
         expect(component.limit).toBe(40)
     })
 

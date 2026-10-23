@@ -1,21 +1,26 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing'
+import { NO_ERRORS_SCHEMA } from '@angular/core'
+import { MatMenuModule } from '@angular/material/menu'
+import { NoopAnimationsModule } from '@angular/platform-browser/animations'
 
-import { CoursesListTableComponent } from './courses-list-table.component';
+import { CoursesListTableComponent } from './courses-list-table.component'
 
 describe('CoursesListTableComponent', () => {
-  let component: CoursesListTableComponent;
-  let fixture: ComponentFixture<CoursesListTableComponent>;
+  let component: CoursesListTableComponent
+  let fixture: ComponentFixture<CoursesListTableComponent>
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      declarations: [CoursesListTableComponent]
-    });
-    fixture = TestBed.createComponent(CoursesListTableComponent);
-    component = fixture.componentInstance;
-    fixture.detectChanges();
-  });
+      declarations: [CoursesListTableComponent],
+      imports: [MatMenuModule, NoopAnimationsModule],
+      schemas: [NO_ERRORS_SCHEMA],
+    })
+    fixture = TestBed.createComponent(CoursesListTableComponent)
+    component = fixture.componentInstance
+    fixture.detectChanges()
+  })
 
   it('should create', () => {
-    expect(component).toBeTruthy();
-  });
-});
+    expect(component).toBeTruthy()
+  })
+})

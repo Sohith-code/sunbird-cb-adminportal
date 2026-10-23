@@ -62,7 +62,7 @@ describe('HomeComponent', () => {
         const unsubscribeSpy = jest.fn()
         // Spy on the subscription's unsubscribe method
         mockValueService.isLtMedium$ = of(false)
-        //  component.defaultSideNavBarOpenedSubscription = { unsubscribe: unsubscribeSpy } as any
+        ;(component as any).defaultSideNavBarOpenedSubscription = { unsubscribe: unsubscribeSpy }
 
         component.ngOnDestroy()
 

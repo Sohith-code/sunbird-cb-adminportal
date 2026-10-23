@@ -104,7 +104,8 @@ describe('PositionsNewComponent', () => {
   })
 
   it('should call openSnackbar with correct arguments', () => {
-    // component.openSnackbar('Test Message')
+    mockSnackBar.open.mockClear()
+    ;(component as any).openSnackbar('Test Message')
     expect(mockSnackBar.open).toHaveBeenCalledWith('Test Message', 'X', { duration: 5000 })
   })
 })

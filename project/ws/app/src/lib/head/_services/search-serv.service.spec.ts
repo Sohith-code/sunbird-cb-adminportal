@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http'
+import { of } from 'rxjs'
 import { SearchApiService } from './search-api.service'
 import { ConfigurationsService, EventService } from '@sunbird-cb/utils-v2'
 import { SearchServService } from './search-serv.service'
@@ -40,8 +41,7 @@ describe('SearchServService', () => {
         }
       }
 
-      // Mock the HTTP request to return the mock config
-      // mockHttp.get.mockResolvedValueOnce(mockConfig)
+      mockHttp.get.mockReturnValueOnce(of(mockConfig) as any)
 
       const result = await searchServService.getSearchConfig()
 
@@ -62,8 +62,8 @@ describe('SearchServService', () => {
 
   describe('getApplyPhraseSearch', () => {
     it('should return true if phraseSearch is enabled in the config', async () => {
-      // const mockConfig: MockSearchConfig = { search: { tabs: [{ phraseSearch: true }] } }
-      // mockHttp.get.mockResolvedValueOnce(mockConfig)
+      const mockConfig: MockSearchConfig = { search: { tabs: [{ phraseSearch: true }] } }
+      mockHttp.get.mockReturnValueOnce(of(mockConfig) as any)
 
       const result = await searchServService.getApplyPhraseSearch()
 
@@ -71,8 +71,8 @@ describe('SearchServService', () => {
     })
 
     it('should return false if phraseSearch is disabled in the config', async () => {
-      // const mockConfig: MockSearchConfig = { search: { tabs: [{ phraseSearch: false }] } }
-      // mockHttp.get.mockResolvedValueOnce(mockConfig)
+      const mockConfig: MockSearchConfig = { search: { tabs: [{ phraseSearch: false }] } }
+      mockHttp.get.mockReturnValueOnce(of(mockConfig) as any)
 
       const result = await searchServService.getApplyPhraseSearch()
 

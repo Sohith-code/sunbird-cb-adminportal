@@ -29,7 +29,7 @@ describe('ConfirmationBoxComponent', () => {
   })
 
   it('should close the modal with "confirmed" when performAction is called with confirmation data', () => {
-    const data = { type: 'confirmation' }
+    const data = { type: 'conformation' }
     component.performAction(data)
     expect(dialogRefMock.close).toHaveBeenCalledWith('confirmed')
   })

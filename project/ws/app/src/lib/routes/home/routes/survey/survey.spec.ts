@@ -1,5 +1,6 @@
 import { SurveyComponent } from './survey.component'
-import { of } from 'rxjs'
+import { of, Subject } from 'rxjs'
+import { environment } from '../../../../../../../../../src/environments/environment'
 
 // Mock dependencies
 jest.mock('@angular/material/dialog')
@@ -75,8 +76,8 @@ describe('SurveyComponent', () => {
   })
 
   test('should open dialog when onCreateClick is called', () => {
-    // Setup environment mock
-    (global as any).environment = { sitePath: 'test-site-path' }
+    // Setup environment
+    (environment as any).sitePath = 'test-site-path'
 
     // Call method
     component.onCreateClick()
@@ -84,7 +85,7 @@ describe('SurveyComponent', () => {
     // Verify dialog was opened with correct params
     expect(mockMatDialog.open).toHaveBeenCalled()
     const dialogArgs = mockMatDialog.open.mock.calls[0]
-    expect(dialogArgs[1].data.surveyFileUploadUrl).toContain('test-site-path')
+    expect(dialogArgs[1].data.surveyFileUploadUrl).toBe('https://test-site-path/validation/template/template-selection')
     expect(dialogArgs[1].disableClose).toBe(true)
     expect(dialogArgs[1].width).toBe('95%')
     expect(dialogArgs[1].height).toBe('95%')
@@ -165,28 +166,30 @@ describe('SurveyComponent', () => {
   })
 
   test('should refresh survey list after dialog closes', () => {
-    // Setup mocks
-    (global as any).environment = { sitePath: 'test-site-path' }
     jest.useFakeTimers()
+    const afterClosed$ = new Subject<any>()
+    const dialogRef = {
+      afterClosed: jest.fn().mockReturnValue(afterClosed$),
+      backdropClick: jest.fn().mockReturnValue(of({})),
+      close: jest.fn(),
+    }
+    mockMatDialog.open.mockReturnValue(dialogRef)
     component.getSurveysData = jest.fn()
 
-    // Open dialog
     component.onCreateClick()
 
-    // Get dialog reference mock
-    const dialogRef = mockMatDialog.open.mock.results[0].value
+    // backdrop click closes the dialog
+    expect(dialogRef.close).toHaveBeenCalled()
 
     // Simulate dialog closing
-    dialogRef.afterClosed().subscribe.mock.calls[0][0]()
+    afterClosed$.next(undefined)
+    expect(component.loadSurveyList).toBe(false)
 
-    // Fast-forward timers
     jest.runAllTimers()
 
-    // Verify getSurveysData was called and loadSurveyList updated
     expect(component.loadSurveyList).toBe(true)
     expect(component.getSurveysData).toHaveBeenCalled()
 
-    // Restore timers
     jest.useRealTimers()
   })
 })

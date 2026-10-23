@@ -1,77 +1,72 @@
 import { EditSectorComponent } from './edit-sector.component'
 import { of, throwError } from 'rxjs'
-import { ActivatedRoute, Router } from '@angular/router'
-import { SectorsService } from '../sectors.service'
-import { MatSnackBar } from '@angular/material/snack-bar'
-import { ConfigurationsService } from '@sunbird-cb/utils-v2'
 import { UntypedFormBuilder } from '@angular/forms'
-import { MatDialog } from '@angular/material/dialog'
 import { sectorConstants } from '../sectors-constats.model'
-
-jest.mock('@angular/router')
-jest.mock('../sectors.service')
-jest.mock('@angular/material/snack-bar')
-jest.mock('@sunbird-cb/utils-v2')
-jest.mock('@angular/material/dialog')
 
 describe('EditSectorComponent', () => {
     let component: EditSectorComponent
     let sectorsService: any
     let snackBar: any
-    let activatedRoute: jest.Mocked<ActivatedRoute>
+    let activatedRoute: any
     let router: any
-    let dialog: jest.Mocked<MatDialog>
-    let formBuilder: UntypedFormBuilder
+    let dialog: any
     let configSvc: any
+    let sanitizer: any
 
     beforeEach(() => {
-        sectorsService = new SectorsService(null as any) // Provide appropriate mocks for services
-        snackBar = new MatSnackBar(null as any, null as any, null as any, null as any, null as any, null as any)
-        activatedRoute = { params: of({ id: '123' }) } as any
-        router = new Router()
-        dialog = {} as any // Add mock methods if required
-        formBuilder = new UntypedFormBuilder()
-        configSvc = new ConfigurationsService() // Mock service
+        sectorsService = {
+            readSector: jest.fn(),
+            createSubSectors: jest.fn(),
+            getChangedArtifactUrl: jest.fn(),
+        }
+        snackBar = { open: jest.fn() }
+        activatedRoute = { params: of({ id: '123' }) }
+        router = { navigate: jest.fn(), navigateByUrl: jest.fn() }
+        dialog = {}
+        configSvc = { userProfile: { userId: 'user-1' } }
+        sanitizer = { bypassSecurityTrustResourceUrl: jest.fn((url: string) => `safe:${url}`) }
 
         component = new EditSectorComponent(
             dialog,
             configSvc,
             router,
-            formBuilder,
+            new UntypedFormBuilder(),
             sectorsService,
-            null as any, // Mocked sanitizer
+            sanitizer,
             activatedRoute,
-            snackBar
+            snackBar,
         )
     })
 
     it('should create the component', () => {
         expect(component).toBeTruthy()
+        expect(component.currentUser).toBe('user-1')
     })
 
     it('should initialize the component with sector data on ngOnInit', () => {
         const sectorDetails = {
             name: 'Test Sector',
             imgUrl: 'test-url',
-            children: [{ name: 'Sub-sector 1' }]
+            children: [{ name: 'Sub-sector 1' }],
         }
-        sectorsService.readSector = jest.fn().mockReturnValue(of({ responseCode: 'OK', result: { sector: sectorDetails } }))
+        sectorsService.readSector.mockReturnValue(of({ responseCode: 'OK', result: { sector: sectorDetails } }))
 
         component.ngOnInit()
 
+        expect(sectorsService.readSector).toHaveBeenCalledWith('123')
         expect(component.sectorDetails).toEqual(sectorDetails)
         expect(component.addSectorForm.controls['sectorTitle'].value).toBe('Test Sector')
         expect(component.addSectorForm.controls['imgUrl'].value).toBe('test-url')
-        expect(component.textboxes.length).toBe(1) // One sub-sector added
+        expect(component.textboxes.length).toBe(1)
     })
 
-    it('should handle error when reading sector data in ngOnInit', () => {
-        sectorsService.readSector = jest.fn().mockReturnValue(throwError({ error: { responseCode: 'BAD_REQUEST' } }))
-        snackBar.open = jest.fn()
+    it('should show the error in snackbar when reading sector data fails', () => {
+        const error = { error: { responseCode: 'BAD_REQUEST' } }
+        sectorsService.readSector.mockReturnValue(throwError(error))
 
         component.ngOnInit()
 
-        expect(snackBar.open).toHaveBeenCalledWith('Bad Request', 'X', { duration: sectorConstants.duration })
+        expect(snackBar.open).toHaveBeenCalledWith(error, 'X', { duration: sectorConstants.duration })
     })
 
     it('should add a textbox when addTextbox is called', () => {
@@ -87,50 +82,70 @@ describe('EditSectorComponent', () => {
     })
 
     it('should navigate to the sectors page on goToList', () => {
-        router.navigateByUrl = jest.fn()
         component.goToList()
         expect(router.navigateByUrl).toHaveBeenCalledWith('/app/home/sectors')
     })
 
     it('should submit sub-sectors successfully', () => {
-        const response = { responseCode: 'OK' }
-        sectorsService.createSubSectors = jest.fn().mockReturnValue(of(response))
-        snackBar.open = jest.fn()
-        router.navigate = jest.fn()
+        sectorsService.createSubSectors.mockReturnValue(of({ responseCode: 'OK' }))
 
-        component.sectorDetails = { identifier: 'sector-1', children: [] }
-        component.myForm.controls['textboxes'].setValue(['New Sub-sector'])
+        component.sectorDetails = { identifier: 'sector-1', children: [{ name: 'Existing' }] }
+        component.addTextbox()
+        component.textboxes.at(0).setValue('New Sub-sector')
 
         component.onSubSectorSubmit()
 
+        expect(sectorsService.createSubSectors).toHaveBeenCalledWith({
+            request: {
+                identifier: 'sector-1',
+                subsectors: [{ name: 'Existing' }, { name: 'New Sub-sector' }],
+            },
+        })
         expect(snackBar.open).toHaveBeenCalledWith('Sub-sectors are successfuly created.')
         expect(router.navigate).toHaveBeenCalledWith(['/app/home/sectors'])
+        expect(component.loading).toBe(false)
     })
 
-    it('should handle error during sub-sector submission', () => {
+    it('should handle bad request error during sub-sector submission', () => {
         const errorResponse = { error: { responseCode: 'BAD_REQUEST', params: { errmsg: 'Error message' } } }
-        sectorsService.createSubSectors = jest.fn().mockReturnValue(throwError(errorResponse))
-        snackBar.open = jest.fn()
+        sectorsService.createSubSectors.mockReturnValue(throwError(errorResponse))
+        component.sectorDetails = { identifier: 'sector-1', children: [] }
 
         component.onSubSectorSubmit()
 
         expect(snackBar.open).toHaveBeenCalledWith('Error message')
+        expect(component.loading).toBe(false)
+    })
+
+    it('should handle other errors during sub-sector submission', () => {
+        sectorsService.createSubSectors.mockReturnValue(throwError({ error: { responseCode: 'SERVER_ERROR' } }))
+        component.sectorDetails = { identifier: 'sector-1', children: [] }
+
+        component.onSubSectorSubmit()
+
+        expect(snackBar.open).toHaveBeenCalledWith('Something went wrong.', 'X', { duration: sectorConstants.duration })
     })
 
     it('should validate input and show error if HTML/JS is detected', () => {
-        const event = '<script>alert("XSS")</script>'
-        snackBar.open = jest.fn()
-
-        component.validateInput(event)
+        component.validateInput('<script>alert("XSS")</script>')
 
         expect(snackBar.open).toHaveBeenCalledWith('HTML or Js is not allowed')
         expect(component.myForm.controls['textboxes'].errors).toEqual({ required: true })
     })
 
+    it('should not flag plain text input', () => {
+        component.validateInput('Plain text')
+        expect(snackBar.open).not.toHaveBeenCalled()
+    })
+
     it('should format URL properly', () => {
-        const url = 'test-url'
-        sectorsService.getChangedArtifactUrl = jest.fn().mockReturnValue('changed-url')
-        const formattedUrl = component.getUrl(url)
-        expect(formattedUrl).toBe('changed-url')
+        sectorsService.getChangedArtifactUrl.mockReturnValue('changed-url')
+        expect(component.getUrl('test-url')).toBe('safe:changed-url')
+        expect(sanitizer.bypassSecurityTrustResourceUrl).toHaveBeenCalledWith('changed-url')
+    })
+
+    it('should return default logo when URL cannot be changed', () => {
+        sectorsService.getChangedArtifactUrl.mockReturnValue('')
+        expect(component.getUrl('')).toBe('/assets/instances/eagle/app_logos/default.png')
     })
 })

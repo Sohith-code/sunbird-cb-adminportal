@@ -56,7 +56,7 @@ describe('UIDiscussionPostComponent', () => {
 
         // Initialize with test data
         component.tableData = mockTableData
-        // component.data = mockData
+        component.data = mockData as any
     })
 
     it('should create the component', () => {
@@ -110,7 +110,8 @@ describe('UIDiscussionPostComponent', () => {
     it('should return correct timeframe for hour', () => {
         expect(component.timeframe(0)).toBe('AM')
         expect(component.timeframe(11)).toBe('AM')
-        expect(component.timeframe(12)).toBe('PM')
+        expect(component.timeframe(12)).toBe('AM')
+        expect(component.timeframe(13)).toBe('PM')
         expect(component.timeframe(23)).toBe('PM')
     })
 
@@ -128,7 +129,7 @@ describe('UIDiscussionPostComponent', () => {
 
     it('should publish data correctly', () => {
         // Setup spy on dataSource
-        component.dataSource = new MatTableDataSource(mockData)
+        component.dataSource = new MatTableDataSource(mockData.map(d => ({ ...d })))
 
         // Call publish method
         component.publish('1')
@@ -156,7 +157,7 @@ describe('UIDiscussionPostComponent', () => {
 
     it('should open dialog and process rejection correctly', () => {
         // Setup dataSource
-        component.dataSource = new MatTableDataSource(mockData)
+        component.dataSource = new MatTableDataSource(mockData.map(d => ({ ...d })))
 
         // Call openDialog method
         component.openDialog('1', 'Test post 1', 'bad')

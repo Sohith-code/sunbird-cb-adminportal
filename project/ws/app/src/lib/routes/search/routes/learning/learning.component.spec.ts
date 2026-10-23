@@ -52,7 +52,7 @@ describe('LearningComponent', () => {
         }
 
         mockRouter = {
-            navigate: jest.fn()
+            navigate: jest.fn(() => Promise.resolve(true))
         }
 
         mockValueService = {
@@ -265,10 +265,12 @@ describe('LearningComponent', () => {
 
             component.getResults()
 
+            // single-word query is not wrapped in quotes; the request object is
+            // mutated after the call (pageNo is incremented), so only stable fields are checked
             expect(mockSearchService.getLearning).toHaveBeenCalledWith(expect.objectContaining({
-                query: '"test"',
+                query: 'test',
                 filters: {},
-                pageNo: 0
+                didYouMean: true,
             }))
 
             expect(component.searchResults.totalHits).toBe(10)
@@ -348,8 +350,10 @@ describe('LearningComponent', () => {
     })
 
     describe('searchLanguage', () => {
-        it('should navigate with language parameter', () => {
+        it('should navigate with language parameter', async () => {
+            component.expandToPrefLang = true
             component.searchLanguage('hi')
+            await Promise.resolve()
             expect(mockRouter.navigate).toHaveBeenCalledWith(
                 [],
                 expect.objectContaining({
@@ -376,7 +380,8 @@ describe('LearningComponent', () => {
 
     describe('searchInsteadFor', () => {
         it('should clear results and call getResults with didYouMean false', () => {
-            const getResultsSpy = jest.spyOn(component, 'getResults')
+            const getResultsSpy = jest.spyOn(component, 'getResults').mockImplementation(() => undefined)
+            component.searchResults.result = [{ identifier: 'x' }] as any
             component.searchInsteadFor()
             expect(component.searchResults.result).toEqual([])
             expect(getResultsSpy).toHaveBeenCalledWith(undefined, false)

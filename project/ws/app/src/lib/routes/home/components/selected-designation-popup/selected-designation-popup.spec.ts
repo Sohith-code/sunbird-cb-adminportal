@@ -30,13 +30,14 @@ describe('SelectedDesignationPopupComponent', () => {
 
   it('should remove a selected designation when removeSelectedDesignation is called', () => {
     const index = 0
+    const [first, second] = [...mockDialogData]
     component.removeSelectedDesignation(index)
 
     // Check that the removed item is pushed into removedDesignationsList
-    expect(component.removedDesignationsList).toEqual([mockDialogData[index]])
+    expect(component.removedDesignationsList).toEqual([first])
 
     // Check that the item is removed from selectedDesignationsList
-    expect(component.selectedDesignationsList).toEqual([mockDialogData[1]])
+    expect(component.selectedDesignationsList).toEqual([second])
   })
 
   it('should close the dialog and pass the removed designations when updateList is called', () => {

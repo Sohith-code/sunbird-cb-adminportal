@@ -14,10 +14,10 @@ describe('ContentUploadComponent', () => {
     beforeEach(() => {
         // Create mocks for dependencies
         marketplaceServiceMock = {
-            getContentList: jest.fn(),
-            getCoursesList: jest.fn(),
-            deleteUnPublishedCourses: jest.fn(),
-            downloadLogs: jest.fn(),
+            getContentList: jest.fn().mockReturnValue(of([])),
+            getCoursesList: jest.fn().mockReturnValue(of({ totalCount: 0, data: [] })),
+            deleteUnPublishedCourses: jest.fn().mockReturnValue(of(true)),
+            downloadLogs: jest.fn().mockReturnValue(of(null)),
         } as any
 
         datePipeMock = {
@@ -57,8 +57,12 @@ describe('ContentUploadComponent', () => {
 
         it('should initialize tables on ngOnInit', () => {
             const getTablesDataSpy = jest.spyOn(component, 'getTablesData')
+            // pagination details are initialised via ngOnChanges before ngOnInit
+            component.tableDataInitialzation()
             component.ngOnInit()
             expect(getTablesDataSpy).toHaveBeenCalled()
+            expect(marketplaceServiceMock.getContentList).toHaveBeenCalledWith('123')
+            expect(marketplaceServiceMock.getCoursesList).toHaveBeenCalledTimes(2)
         })
 
         it('should initialize table data when providerDetails changes', () => {
@@ -103,7 +107,7 @@ describe('ContentUploadComponent', () => {
                     }
                 }
             }
-            marketplaceServiceMock.getContentList.mockReturnValue(throwError(() => errorResponse))
+            marketplaceServiceMock.getContentList.mockReturnValue(throwError(errorResponse))
 
             component.getContentList()
 
@@ -152,7 +156,7 @@ describe('ContentUploadComponent', () => {
                     }
                 }
             }
-            marketplaceServiceMock.getCoursesList.mockReturnValue(throwError(() => errorResponse))
+            marketplaceServiceMock.getCoursesList.mockReturnValue(throwError(errorResponse))
 
             component.getPublishedCoursesList()
 
@@ -200,7 +204,7 @@ describe('ContentUploadComponent', () => {
                     }
                 }
             }
-            marketplaceServiceMock.getCoursesList.mockReturnValue(throwError(() => errorResponse))
+            marketplaceServiceMock.getCoursesList.mockReturnValue(throwError(errorResponse))
 
             component.getUnPublishedCoursesList()
 
@@ -269,13 +273,14 @@ describe('ContentUploadComponent', () => {
                     download: '',
                     click: jest.fn()
                 }
-                document.createElement = jest.fn().mockReturnValue(mockAnchor)
+                const createElementSpy = jest.spyOn(document, 'createElement').mockReturnValue(mockAnchor as any)
 
                 component.downloadLog('test-gcp.csv', 'test.xlsx')
 
                 expect(marketplaceServiceMock.downloadLogs).toHaveBeenCalledWith('test-gcp.csv')
                 expect(mockAnchor.click).toHaveBeenCalled()
                 expect(snackBarMock.open).toHaveBeenCalledWith('Logs Downloaded Successfully.')
+                createElementSpy.mockRestore()
             })
 
             it('should handle download error', () => {
@@ -286,7 +291,7 @@ describe('ContentUploadComponent', () => {
                         }
                     }
                 }
-                marketplaceServiceMock.downloadLogs.mockReturnValue(throwError(() => errorResponse))
+                marketplaceServiceMock.downloadLogs.mockReturnValue(throwError(errorResponse))
 
                 component.downloadLog('test-gcp.csv', 'test.xlsx')
 

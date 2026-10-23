@@ -114,6 +114,11 @@ describe('EventBannerComponent', () => {
 
     describe('ngOnDestroy', () => {
         it('should unsubscribe from currentSubscription if it exists', () => {
+            component.ngOnInit()
+            const sub = (component as any).currentSubscription
+            const unsubscribeSpy = jest.spyOn(sub, 'unsubscribe')
+            component.ngOnDestroy()
+            expect(unsubscribeSpy).toHaveBeenCalled()
             // Create a mock subscription
             // component.currentSubscription = new Subscription()
             // const unsubscribeSpy = jest.spyOn(component.currentSubscription, 'unsubscribe')
@@ -208,11 +213,10 @@ describe('EventBannerComponent', () => {
     describe('timer subscription behavior', () => {
         it('should update allRemainingTime when timer emits', () => {
             // Setup
-            component.calculateTime() // Initialize sessionTime array
-            component.ngOnInit() // Create timer subscription
+            component.ngOnInit() // Initialize sessionTime array and create timer subscription
 
-            // Clear mocks to check just the timer callback behavior
-            changeDetectorRef.detectChanges.mockClear()
+            // Let the timer emit its first value
+            jest.advanceTimersByTime(1)
 
             // Mock the timer callback
             // const timerCallback = (component.currentSubscription as any)._finalizer
@@ -225,6 +229,8 @@ describe('EventBannerComponent', () => {
 
             // Check if allRemainingTime was updated
             expect(component.allRemainingTime.length).toBeGreaterThan(0)
+
+            component.ngOnDestroy()
         })
     })
 })

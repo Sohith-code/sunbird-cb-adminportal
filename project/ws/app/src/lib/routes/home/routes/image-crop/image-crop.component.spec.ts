@@ -12,6 +12,36 @@ describe('ImageCropComponent', () => {
   let valueServiceMock: ValueService
   let configServiceMock: ConfigurationsService
 
+  const originalFileReader = global.FileReader
+  const originalImage = global.Image
+  let fileReaderInstance: any
+  let imageInstance: any
+
+  // Replaces FileReader/Image with controllable fakes; returns a function that fires the load events
+  const mockImageLoading = (imgWidth: number, imgHeight: number) => {
+    (global as any).FileReader = jest.fn().mockImplementation(() => {
+      fileReaderInstance = {
+        result: 'data:image/png;base64,AAAA',
+        onload: null,
+        readAsDataURL: jest.fn(),
+      }
+      return fileReaderInstance
+    });
+    (global as any).Image = jest.fn().mockImplementation(() => {
+      imageInstance = { width: imgWidth, height: imgHeight, src: '', onload: null }
+      return imageInstance
+    })
+    return () => {
+      fileReaderInstance.onload()
+      imageInstance.onload()
+    }
+  }
+
+  afterEach(() => {
+    global.FileReader = originalFileReader
+    global.Image = originalImage
+  })
+
   beforeEach(() => {
     dialogRefMock = { close: jest.fn(), updateSize: jest.fn() } as unknown as MatDialogRef<ImageCropComponent>
     snackBarMock = { open: jest.fn() } as unknown as MatSnackBar
@@ -48,7 +78,8 @@ describe('ImageCropComponent', () => {
     const subscribeMock = jest.fn((callback) => {
       callback(true) // simulate the subscription behavior
     })
-    // valueServiceMock.isXSmall$.subscribe = subscribeMock
+    ;(valueServiceMock as any).isXSmall$.subscribe = subscribeMock
+    mockImageLoading(200, 200)
 
     component.ngOnInit()
 
@@ -58,8 +89,13 @@ describe('ImageCropComponent', () => {
 
   it('should call openSnackBar with correct message when thumbnail size is correct', () => {
     const spySnackBar = jest.spyOn(snackBarMock, 'open')
-    component.thumbnailSizeDetection() // Call this directly since FileReader is async
+    const fireLoad = mockImageLoading(200, 200)
+    component.thumbnailSizeDetection()
+    fireLoad()
 
+    expect(fileReaderInstance.readAsDataURL).toHaveBeenCalledWith(component.imageFile)
+    expect(imageInstance.src).toBe('data:image/png;base64,AAAA')
+    expect(component.isNotOfRequiredSize).toBe(false)
     expect(spySnackBar).toHaveBeenCalledWith('Image is of the required dimensions of the thumbnail, croping is not available!', 'X', {
       duration: sectorConstants.duration,
     })
@@ -116,9 +152,12 @@ describe('ImageCropComponent', () => {
     component.imageFile = smallFile
     component.opHeight = 500
     component.opWidth = 500
+    const fireLoad = mockImageLoading(200, 200)
 
-    component.thumbnailSizeDetection() // Manually trigger this
+    component.thumbnailSizeDetection()
+    fireLoad()
 
+    expect(snackBarMock.open).not.toHaveBeenCalled()
     expect(component.isNotOfRequiredSize).toBe(true)
   })
 })

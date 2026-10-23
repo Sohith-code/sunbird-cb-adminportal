@@ -89,7 +89,7 @@ describe('PublicAboutComponent', () => {
 
   it('should unsubscribe from subscriptionAbout on ngOnDestroy', () => {
     const unsubscribeMock = jest.fn()
-    // component.subscriptionAbout = { unsubscribe: unsubscribeMock } as any
+    ;(component as any).subscriptionAbout = { unsubscribe: unsubscribeMock }
     component.ngOnDestroy()
 
     expect(unsubscribeMock).toHaveBeenCalled()

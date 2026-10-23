@@ -34,6 +34,9 @@ describe('SectorsComponent', () => {
 
     it('should initialize with default values', () => {
         expect(component.isLoading).toBeFalsy()
+        expect(component.tabledata).toEqual([])
+        mockSectorsService.getAllSectors = jest.fn().mockReturnValue(of({}))
+        component.ngOnInit()
         expect(component.tabledata).toEqual({
             columns: [
                 { displayName: 'Sector', key: 'name' },
@@ -59,34 +62,31 @@ describe('SectorsComponent', () => {
                 ],
             },
         }
-        mockSectorsService.getAllSectors = jest.fn().mockReturnValue(of(mockResponse))
+        ;(mockSectorsService.getAllSectors as jest.Mock).mockReturnValue(of(mockResponse))
 
         component.ngOnInit()
 
-        expect(component.isLoading).toBeTruthy()
-        setTimeout(() => {
-            expect(component.isLoading).toBeFalsy()
-            expect(component.data.length).toBe(2)
-            expect(component.data[0].subSector).toBe('SubSector 1')
-            expect(component.data[1].subSector).toBe('')
-            expect(component.data[0].identifier).toBe('1')
-            expect(component.data[1].identifier).toBe('2')
-        }, 0)
+        expect(mockSectorsService.getAllSectors).toHaveBeenCalled()
+        expect(component.isLoading).toBeFalsy()
+        expect(component.data.length).toBe(2)
+        expect(component.data[0].subSector).toBe('SubSector 1')
+        expect(component.data[1].subSector).toBe('')
+        expect(component.data[0].identifier).toBe('1')
+        expect(component.data[1].identifier).toBe('2')
     })
 
     it('should handle error while getting sectors', () => {
         const errorResponse = new Error('Something went wrong')
-        mockSectorsService.getAllSectors = jest.fn().mockReturnValue(throwError(errorResponse))
+        ;(mockSectorsService.getAllSectors as jest.Mock).mockReturnValue(throwError(errorResponse))
 
-        console.log = jest.fn()  // Mock console.log to suppress the error logs
+        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => { })
 
         component.ngOnInit()
 
-        expect(component.isLoading).toBeTruthy()
-        setTimeout(() => {
-            expect(component.isLoading).toBeFalsy()
-            expect(console.log).toHaveBeenCalledWith(errorResponse)
-        }, 0)
+        expect(component.isLoading).toBeFalsy()
+        expect(component.data.length).toBe(0)
+        expect(logSpy).toHaveBeenCalledWith(errorResponse)
+        logSpy.mockRestore()
     })
 
     it('should return a string of sub-sectors when getSubSectors is called', () => {

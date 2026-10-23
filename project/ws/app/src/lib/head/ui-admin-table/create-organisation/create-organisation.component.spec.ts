@@ -5,21 +5,17 @@ import { CreateMDOService } from '../../../routes/home/services/create-mdo.servi
 import { ActivatedRoute } from '@angular/router'
 import { LoaderService } from '../../../routes/home/services/loader.service'
 import { of, throwError } from 'rxjs'
-import * as _ from 'lodash'
 
 describe('CreateOrganisationComponent', () => {
   let component: CreateOrganisationComponent
-  let mockFormBuilder: jest.Mocked<FormBuilder>
+  let formBuilder: FormBuilder
   let mockSnackBar: jest.Mocked<MatSnackBar>
   let mockCreateMDOService: jest.Mocked<CreateMDOService>
   let mockActivatedRoute: jest.Mocked<ActivatedRoute>
   let mockLoaderService: jest.Mocked<LoaderService>
 
   beforeEach(() => {
-    mockFormBuilder = {
-      group: jest.fn(),
-      control: jest.fn()
-    } as any
+    formBuilder = new FormBuilder()
 
     mockSnackBar = {
       open: jest.fn()
@@ -29,6 +25,7 @@ describe('CreateOrganisationComponent', () => {
       createOrganization: jest.fn(),
       updateOrganization: jest.fn(),
       searchOrgs: jest.fn(),
+      getStatesOrMinisteries: jest.fn().mockReturnValue(of({ result: { response: { content: [] } } })),
       uploadOrganizationLogo: jest.fn()
     } as any
 
@@ -52,53 +49,18 @@ describe('CreateOrganisationComponent', () => {
       }
     } as any
 
-    // Mock lodash get method
-    jest.spyOn(_, 'get').mockImplementation((obj, path, defaultValue) => {
-      return _.get(obj, path) || defaultValue
-    })
-
     component = new CreateOrganisationComponent(
-      mockFormBuilder,
+      formBuilder,
       mockSnackBar,
       mockCreateMDOService,
       mockActivatedRoute,
       mockLoaderService
     )
 
-    // Setup mock form
-    const mockForm = {
-      controls: {
-        organisationName: {
-          value: 'Test Org',
-          setValue: jest.fn(),
-          setValidators: jest.fn(),
-          updateValueAndValidity: jest.fn()
-        },
-        category: {
-          value: 'ministry',
-          valueChanges: of('ministry'),
-          setValue: jest.fn(),
-          setValidators: jest.fn(),
-          updateValueAndValidity: jest.fn()
-        },
-        state: {
-          setValue: jest.fn(),
-          clearValidators: jest.fn(),
-          updateValueAndValidity: jest.fn()
-        },
-        ministry: {
-          setValue: jest.fn(),
-          clearValidators: jest.fn(),
-          updateValueAndValidity: jest.fn()
-        },
-        description: {
-          value: 'Test Description'
-        }
-      },
-      value: {}
-    }
+  })
 
-    mockFormBuilder.group.mockReturnValue(mockForm as any)
+  afterEach(() => {
+    component.ngOnDestroy()
   })
 
   describe('Initialization', () => {
@@ -108,9 +70,11 @@ describe('CreateOrganisationComponent', () => {
         ministriesList: [{ orgName: 'Ministry1' }]
       }
 
+      const groupSpy = jest.spyOn(formBuilder, 'group')
       component.initialization()
 
-      expect(mockFormBuilder.group).toHaveBeenCalled()
+      expect(groupSpy).toHaveBeenCalled()
+      expect(mockCreateMDOService.getStatesOrMinisteries).toHaveBeenCalledWith('globalngo')
       expect(component.filteredStates).toHaveLength(1)
       expect(component.filteredMinistry).toHaveLength(1)
     })
@@ -129,6 +93,15 @@ describe('CreateOrganisationComponent', () => {
   })
 
   describe('Organization Creation', () => {
+    beforeEach(() => {
+      component.ngOnInit()
+      component.organisationForm.patchValue({
+        organisationName: 'Test Org',
+        category: 'ministry',
+        description: 'Test Description',
+      })
+    })
+
     it('should create organization successfully', () => {
       const mockPayload = {
         orgName: 'Test Org',
@@ -142,7 +115,7 @@ describe('CreateOrganisationComponent', () => {
         parentMapId: ''
       }
 
-      mockCreateMDOService.createOrganization.mockReturnValue(of({ result: true }))
+      mockCreateMDOService.createOrganization.mockReturnValue(of({ result: { id: 'org-1' } }))
 
       const emitSpy = jest.spyOn(component.organizationCreated, 'emit')
       const closeSpy = jest.spyOn(component, 'closeNaveBar')

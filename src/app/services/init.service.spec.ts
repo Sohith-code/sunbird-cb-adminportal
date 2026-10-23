@@ -9,7 +9,8 @@ import { ConfigurationsService, LoggerService, UserPreferenceService } from '@su
 import { BtnSettingsService } from '@sunbird-cb/collection'
 import { SbUiResolverService } from '@sunbird-cb/resolver-v2'
 import { environment } from '../../environments/environment'
-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http'
+import { TranslateService } from '@ngx-translate/core'
 
 describe('InitService', () => {
   let service: InitService
@@ -94,6 +95,13 @@ describe('InitService', () => {
             useValue: matIconRegistryMockImpl
         },
         {
+            provide: TranslateService,
+            useValue: {
+                setDefaultLang: jest.fn(),
+                use: jest.fn(),
+            }
+        },
+        {
             provide: APP_BASE_HREF,
             useValue: '/test'
         },
@@ -119,6 +127,12 @@ describe('InitService', () => {
 
   it('should be created', () => {
     expect(service).toBeTruthy()
+  })
+
+  it('should initialize translations using the locale from baseHref', () => {
+    const translate = TestBed.inject(TranslateService) as any
+    expect(translate.setDefaultLang).toHaveBeenCalledWith('en')
+    expect(translate.use).toHaveBeenCalledWith('test')
   })
 
   describe('fetchDefaultConfig', () => {
@@ -180,15 +194,52 @@ describe('InitService', () => {
 
   // More complex method tests would require more setup and mocking
   describe('init method', () => {
+    afterEach(() => {
+      window.history.pushState({}, '', '/')
+    })
+
     it('should handle initialization for public paths', async () => {
-      // Simulate public path
-      Object.defineProperty(window, 'location', {
-        value: { pathname: '/public' },
-        writable: true
+      // Simulate public path (jsdom does not allow redefining window.location)
+      window.history.pushState({}, '', '/public/home')
+      const defaultConfig: any = { rootOrg: 'root', org: ['org'], backgrounds: {} }
+      const instanceConfig: any = { rootOrg: 'root', org: ['org'], featuredApps: ['f1', 'f2'], backgrounds: {} }
+      const appsConfig: any = { features: { f1: { id: 'f1' } }, groups: [], tourGuide: {} }
+      const startUpSpy = jest.spyOn(service as any, 'fetchStartUpDetails')
+      jest.spyOn(service as any, 'fetchDefaultConfig').mockImplementation(async () => {
+        configServiceMock.instanceConfig = defaultConfig
+        return defaultConfig
       })
+      jest.spyOn(service as any, 'fetchAppsConfig').mockResolvedValue(appsConfig)
+      jest.spyOn(service as any, 'fetchInstanceConfig').mockImplementation(async () => {
+        configServiceMock.instanceConfig = instanceConfig
+        return instanceConfig
+      })
+      jest.spyOn(service as any, 'fetchWidgetStatus').mockResolvedValue([])
+      jest.spyOn(service as any, 'fetchFeaturesStatus').mockResolvedValue(new Set())
+      jest.spyOn(service as any, 'processWidgetStatus').mockReturnValue(new Set())
+      jest.spyOn(service as any, 'processAppsConfig').mockReturnValue(appsConfig)
 
       const result = await service.init()
-      expect(result).toBeTruthy()
+
+      expect(result).toBe(true)
+      expect(startUpSpy).not.toHaveBeenCalled()
+      expect(configServiceMock.appsConfig).toBe(appsConfig)
+      expect(configServiceMock.instanceConfig!.featuredApps).toEqual(['f1'])
+      expect(TestBed.inject(SbUiResolverService).initialize).toHaveBeenCalled()
+      expect(TestBed.inject(BtnSettingsService).initializePrefChanges).toHaveBeenCalledWith(environment.production)
+      expect(TestBed.inject(UserPreferenceService).initialize).toHaveBeenCalled()
+    })
+
+    it('should return false when fetching start up details fails on protected paths', async () => {
+      window.history.pushState({}, '', '/app/home')
+      jest.spyOn(service as any, 'fetchDefaultConfig').mockResolvedValue({})
+      jest.spyOn(service as any, 'fetchStartUpDetails').mockRejectedValue(new Error('Invalid user'))
+
+      const result = await service.init()
+
+      expect(result).toBe(false)
+      expect(TestBed.inject(LoggerService).info).toHaveBeenCalledWith('Not Authenticated')
+      expect(TestBed.inject(BtnSettingsService).initializePrefChanges).toHaveBeenCalled()
     })
   })
 })

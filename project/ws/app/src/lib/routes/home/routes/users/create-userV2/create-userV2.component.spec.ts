@@ -1,42 +1,24 @@
 import { CreateUserV2Component } from './create-userV2.component'
-import { TenantAdminService } from '../../../services/tenant-admin.service'
 import { of, throwError } from 'rxjs'
-import { ComponentFixture, TestBed } from '@angular/core/testing'
 import { UntypedFormGroup } from '@angular/forms'
-import { ElementRef } from '@angular/core'
-import { MatSnackBar } from '@angular/material/snack-bar'
 
 describe('CreateUserV2Component', () => {
     let component: CreateUserV2Component
-    let fixture: ComponentFixture<CreateUserV2Component>
-    let snackBarMock: jest.Mocked<MatSnackBar>
-    let tenantAdminSvcMock: jest.Mocked<TenantAdminService>
-    let toastSuccessMock: jest.Mocked<ElementRef>
-    let toastErrorMock: jest.Mocked<ElementRef>
+    let snackBarMock: any
+    let tenantAdminSvcMock: any
 
-    beforeEach(async () => {
-        snackBarMock = { open: jest.fn() } as any
+    const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0))
+
+    beforeEach(() => {
+        snackBarMock = { open: jest.fn() }
         tenantAdminSvcMock = {
             createUser: jest.fn(),
-            getUserDepartments: jest.fn(),
-        } as any
-        toastSuccessMock = { nativeElement: { value: 'Success message' } } as any
-        toastErrorMock = { nativeElement: { value: 'Error message' } } as any
+            getUserDepartments: jest.fn().mockReturnValue(Promise.resolve([])),
+        }
 
-        await TestBed.configureTestingModule({
-            declarations: [CreateUserV2Component],
-            providers: [
-                { provide: MatSnackBar, useValue: snackBarMock },
-                { provide: TenantAdminService, useValue: tenantAdminSvcMock },
-            ],
-        }).compileComponents()
-
-        fixture = TestBed.createComponent(CreateUserV2Component)
-        component = fixture.componentInstance
-        component.toastSuccess = toastSuccessMock
-        component.toastError = toastErrorMock
-
-        fixture.detectChanges()
+        component = new CreateUserV2Component(snackBarMock, tenantAdminSvcMock)
+        component.toastSuccess = { nativeElement: { value: 'Success message' } } as any
+        component.toastError = { nativeElement: { value: 'Error message' } } as any
     })
 
     it('should create the component', () => {
@@ -49,18 +31,26 @@ describe('CreateUserV2Component', () => {
         expect(component.createUserForm.controls['lname']).toBeDefined()
         expect(component.createUserForm.controls['email']).toBeDefined()
         expect(component.createUserForm.controls['department']).toBeDefined()
+        expect(component.createUserForm.valid).toBe(false)
     })
 
     it('should call getUserDepartments on ngOnInit', () => {
         const getUserDepartmentsSpy = jest.spyOn(component, 'getUserDepartments')
         component.ngOnInit()
         expect(getUserDepartmentsSpy).toHaveBeenCalled()
+        expect(tenantAdminSvcMock.getUserDepartments).toHaveBeenCalled()
     })
 
-    it('should unsubscribe on ngOnDestroy', () => {
-        component.unseenCtrlSub = { unsubscribe: jest.fn() } as any
+    it('should unsubscribe on ngOnDestroy when subscription is open', () => {
+        component.unseenCtrlSub = { unsubscribe: jest.fn(), closed: false } as any
         component.ngOnDestroy()
         expect(component.unseenCtrlSub.unsubscribe).toHaveBeenCalled()
+    })
+
+    it('should not unsubscribe on ngOnDestroy when subscription is closed', () => {
+        component.unseenCtrlSub = { unsubscribe: jest.fn(), closed: true } as any
+        component.ngOnDestroy()
+        expect(component.unseenCtrlSub.unsubscribe).not.toHaveBeenCalled()
     })
 
     it('should submit form and handle success', () => {
@@ -71,6 +61,7 @@ describe('CreateUserV2Component', () => {
 
         component.onSubmit(form)
 
+        expect(tenantAdminSvcMock.createUser).toHaveBeenCalledWith(formData)
         expect(form.reset).toHaveBeenCalled()
         expect(snackBarMock.open).toHaveBeenCalledWith('Success message', 'X', { duration: 5000 })
         expect(component.uploadSaveData).toBe(false)
@@ -80,30 +71,32 @@ describe('CreateUserV2Component', () => {
         const formData = { fname: 'John', lname: 'Doe', email: 'john.doe@example.com', department: 'HR' }
         const form = { value: formData, reset: jest.fn() }
 
-        const errorResponse = { error: 'Error: Something went wrong' }
-        tenantAdminSvcMock.createUser.mockReturnValue(throwError(errorResponse))
+        tenantAdminSvcMock.createUser.mockReturnValue(throwError({ error: 'Error: Something went wrong' }))
 
         component.onSubmit(form)
 
         expect(form.reset).not.toHaveBeenCalled()
-        expect(snackBarMock.open).toHaveBeenCalledWith('Something went wrong', 'X', { duration: 5000 })
+        expect(snackBarMock.open).toHaveBeenCalledWith(' Something went wrong', 'X', { duration: 5000 })
         expect(component.uploadSaveData).toBe(false)
     })
 
-    it('should fetch departments on getUserDepartments success', () => {
+    it('should fetch departments on getUserDepartments success', async () => {
         const departments = ['HR', 'Engineering', 'Marketing']
         tenantAdminSvcMock.getUserDepartments.mockReturnValue(Promise.resolve(departments))
 
         component.getUserDepartments()
+        expect(component.fetching).toBe(true)
+        await flushPromises()
 
         expect(component.fetching).toBe(false)
         expect(component.departments).toEqual(departments)
     })
 
-    it('should handle error in getUserDepartments', () => {
+    it('should handle error in getUserDepartments', async () => {
         tenantAdminSvcMock.getUserDepartments.mockReturnValue(Promise.reject('Error fetching departments'))
 
         component.getUserDepartments()
+        await flushPromises()
 
         expect(component.fetching).toBe(false)
         expect(component.departments).toEqual([])

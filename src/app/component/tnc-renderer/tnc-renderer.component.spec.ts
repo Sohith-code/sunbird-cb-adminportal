@@ -37,11 +37,11 @@ describe('TncRendererComponent', () => {
       expect(component.currentPanel).toBe('tnc') // Because generalTnc is not accepted
     })
 
-    it('should switch panel to dp if dpTnc is not accepted', () => {
+    it('should switch panel to dp if generalTnc is accepted but dpTnc is not accepted', () => {
       const mockTncData = {
         isAccepted: false,
         termsAndConditions: [
-          { name: 'Generic T&C', isAccepted: false },
+          { name: 'Generic T&C', isAccepted: true },
           { name: 'DP T&C', isAccepted: false },
         ],
       }

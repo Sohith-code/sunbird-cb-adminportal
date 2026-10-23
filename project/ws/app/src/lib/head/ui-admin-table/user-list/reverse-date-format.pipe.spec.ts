@@ -17,9 +17,8 @@ describe('ReverseDateFormatPipe', () => {
     expect(result).toBeUndefined() // In case the input doesn't match the expected format
   })
 
-  it('should return undefined for a non-string input', () => {
-    const result = pipe.transform(null)
-    expect(result).toBeUndefined() // Handle edge cases for non-string values
+  it('should throw for a null input (pipe does not guard against non-string values)', () => {
+    expect(() => pipe.transform(null)).toThrow()
   })
 
   it('should handle empty string input gracefully', () => {

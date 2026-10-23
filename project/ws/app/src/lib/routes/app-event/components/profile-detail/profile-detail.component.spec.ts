@@ -115,6 +115,7 @@ describe('ProfileDetailComponent', () => {
     })
 
     it('should open dialog with correct data', () => {
+        component.ngOnInit()
         component.openDialog()
 
         expect(matDialogMock.open).toHaveBeenCalledWith(ViewUsersComponent, {
@@ -129,7 +130,7 @@ describe('ProfileDetailComponent', () => {
 
     it('should unsubscribe from screenSubscription on ngOnDestroy', () => {
         const unsubscribeMock = jest.fn()
-        //  component.screenSubscription = { unsubscribe: unsubscribeMock }
+        component.screenSubscription = { unsubscribe: unsubscribeMock } as any
 
         component.ngOnDestroy()
 

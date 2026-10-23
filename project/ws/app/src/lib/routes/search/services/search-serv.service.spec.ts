@@ -91,7 +91,7 @@ describe('SearchServService', () => {
   })
 
   describe('getLearning', () => {
-    it('should return search results from searchV6Wrapper', async () => {
+    it('should return search results from searchV6Wrapper', done => {
       // Arrange
       const mockRequest = { locale: ['en'], query: 'test', filters: {} }
       const mockSearchResults = { items: [] }
@@ -101,7 +101,14 @@ describe('SearchServService', () => {
       const result = searchServService.getLearning(mockRequest)
 
       // Assert
-      expect(result).toEqual(of(mockSearchResults))
+      expect(mockSearchApiService.getSearchV6Results).toHaveBeenCalledWith(expect.objectContaining({
+        locale: ['en'],
+        query: 'test',
+      }))
+      result.subscribe((res: any) => {
+        expect(res).toEqual(mockSearchResults)
+        done()
+      })
     })
   })
 

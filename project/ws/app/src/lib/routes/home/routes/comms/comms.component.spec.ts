@@ -4,7 +4,13 @@ import { ConfigurationsService } from '@sunbird-cb/utils-v2'
 import { CommsService } from './comms.service'
 import { MatSnackBar } from '@angular/material/snack-bar'
 import { DatePipe } from '@angular/common'
-import { of } from 'rxjs'
+import { of, throwError } from 'rxjs'
+
+jest.mock('../../../../../../../../../src/environments/environment', () => ({
+    environment: {
+        spvPath: 'https://your-environment-url',
+    },
+}))
 
 describe('CommsComponent', () => {
     let component: CommsComponent
@@ -63,13 +69,16 @@ describe('CommsComponent', () => {
         const spyGetTableData = jest.spyOn(component, 'getTableData')
 
         component.ngOnInit()
-        expect(spyGetTableData).toHaveBeenCalledWith('2025-02-24') // Date format based on the mock datePipe return value
+        expect(mockDatePipe.transform).toHaveBeenCalledWith(expect.any(Date), 'yyyy-MM-dd')
+        expect(spyGetTableData).toHaveBeenCalledWith('02/24/2025') // value returned by the mocked datePipe
     })
 
     it('should update table data when getTableData is called', () => {
         component.buckets = [{ enable: true, key: 'key1', name: 'Bucket 1' }]
         const mockResponse = { key1: { lastModified: '2025-02-24T10:00:00' } }
         jest.spyOn(mockCommsService, 'getCommsReportContnet').mockReturnValue(of(mockResponse))
+        ;(mockDatePipe.transform as jest.Mock).mockImplementation((_v: any, format: string) =>
+            format === 'yyyy-MM-dd' ? '2025-02-24' : '24/02/2025, 10:00 am')
 
         component.getTableData('2025-02-24')
         expect(component.reportSectionData).toEqual([
@@ -78,11 +87,13 @@ describe('CommsComponent', () => {
     })
 
     it('should handle error gracefully in getTableData', () => {
-        const consoleLogSpy = jest.spyOn(console, 'log')
-        jest.spyOn(mockCommsService, 'getCommsReportContnet').mockReturnValue(of(new Error('Failed')))
+        const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation()
+        const error = new Error('Failed')
+        jest.spyOn(mockCommsService, 'getCommsReportContnet').mockReturnValue(throwError(error))
 
         component.getTableData('2025-02-24')
-        expect(consoleLogSpy).toHaveBeenCalledWith(new Error('Failed'))
+        expect(consoleLogSpy).toHaveBeenCalledWith(error)
+        expect(component.displayLoader).toBe(false)
     })
 
     it('should call snackBar when downloadFile is invoked without a downloadUrl', () => {
@@ -99,28 +110,35 @@ describe('CommsComponent', () => {
     })
 
     it('should update table data when updateDate is called', () => {
-        const spyGetTableData = jest.spyOn(component, 'getTableData')
+        const spyGetTableData = jest.spyOn(component, 'getTableData').mockImplementation()
         component.updateDate({ value: '2025-02-24' })
         expect(spyGetTableData).toHaveBeenCalledWith('2025-02-24')
     })
 
     it('should download report', () => {
         const row = { bucketKey: 'key1.csv', downloadUrl: '2025-02-24' }
-        const xhrMock = {
+        const xhrMock: any = {
             open: jest.fn(),
             send: jest.fn(),
-            onreadystatechange: jest.fn(),
             readyState: 4,
             status: 200,
         }
-        // global.XMLHttpRequest = jest.fn().mockImplementation(() => xhrMock)
+        const originalXHR = global.XMLHttpRequest
+        const originalLocation = window.location
+        global.XMLHttpRequest = jest.fn().mockImplementation(() => xhrMock) as any
+        Object.defineProperty(window, 'location', { value: { href: '' }, writable: true, configurable: true })
 
-        const spyLocationHref = jest.spyOn(window.location, 'href', 'set')
-        component.downloadReport(row)
+        try {
+            component.downloadReport(row)
 
-        expect(xhrMock.open).toHaveBeenCalledWith('GET', 'https://your-environment-url/spvReport/key1/2025-02-24/key1.csv')
-        expect(xhrMock.send).toHaveBeenCalled()
-        xhrMock.onreadystatechange()
-        expect(spyLocationHref).toHaveBeenCalledWith('https://your-environment-url/spvReport/key1/2025-02-24/key1.csv')
+            const expectedUrl = 'https://your-environment-url/apis/proxies/v8/storage/v1/spvReport/key1/2025-02-24/key1.csv'
+            expect(xhrMock.open).toHaveBeenCalledWith('GET', expectedUrl)
+            expect(xhrMock.send).toHaveBeenCalled()
+            xhrMock.onreadystatechange()
+            expect(window.location.href).toBe(expectedUrl)
+        } finally {
+            global.XMLHttpRequest = originalXHR
+            Object.defineProperty(window, 'location', { value: originalLocation, writable: true, configurable: true })
+        }
     })
 })

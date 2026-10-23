@@ -1,5 +1,5 @@
 import { SignupAutoComponent } from './signup-auto.component'
-import { of, throwError } from 'rxjs'
+import { of, Subject, throwError } from 'rxjs'
 import { MatSnackBar } from '@angular/material/snack-bar'
 import { SignupAutoService } from './signup-auto.service'
 import { ActivatedRoute } from '@angular/router'
@@ -9,6 +9,8 @@ describe('SignupAutoComponent', () => {
   let snackBarMock: jest.Mocked<MatSnackBar>
   let signupAutoServiceMock: jest.Mocked<SignupAutoService>
   let activatedRouteMock: jest.Mocked<ActivatedRoute>
+  // messages in the component span multiple lines in the template literal
+  const normalize = (msg: string) => msg.replace(/\s+/g, ' ').trim()
 
   beforeEach(() => {
     // Mock the MatSnackBar
@@ -46,10 +48,13 @@ describe('SignupAutoComponent', () => {
   })
 
   it('should set fetching to true and call signupAutoService.signup on signup', () => {
-    signupAutoServiceMock.signup.mockReturnValue(of({ msg: '1005:Success', email: 'test@example.com' }))
+    const response$ = new Subject<any>()
+    signupAutoServiceMock.signup.mockReturnValue(response$.asObservable())
     component.signup('123')
     expect(component.fetching).toBe(true)
     expect(signupAutoServiceMock.signup).toHaveBeenCalledWith('123')
+    response$.next({ msg: '1005:Success', email: 'test@example.com' })
+    expect(component.fetching).toBe(false)
   })
 
   it('should update message and call openSnackbar on successful signup', () => {
@@ -57,7 +62,7 @@ describe('SignupAutoComponent', () => {
     component.signup('123')
 
     // Check message
-    expect(component.msg).toBe('You have been registered successfully on the platform with email test@example.com. Please check your email')
+    expect(normalize(component.msg)).toBe('You have been registered successfully on the platform with email test@example.com. Please check your email')
 
     // Check if snackbar was called
     expect(snackBarMock.open).toHaveBeenCalledWith(component.msg, 'X', { duration: 5000 })
@@ -65,7 +70,7 @@ describe('SignupAutoComponent', () => {
 
   it('should handle error in signup and show error message', () => {
     const errorResponse = { error: { msg: 'Some error' } }
-    signupAutoServiceMock.signup.mockReturnValue(throwError(() => errorResponse))
+    signupAutoServiceMock.signup.mockReturnValue(throwError(errorResponse))
     component.signup('123')
 
     // Check if the fetching flag is set to false after error
@@ -91,8 +96,8 @@ describe('SignupAutoComponent', () => {
     testCases.forEach(({ responseCode, expectedMsg }) => {
       signupAutoServiceMock.signup.mockReturnValue(of({ msg: `${responseCode}:Success`, email: 'test@example.com' }))
       component.signup('123')
-      expect(component.msg).toBe(expectedMsg)
-      expect(snackBarMock.open).toHaveBeenCalledWith(expectedMsg, 'X', { duration: 5000 })
+      expect(normalize(component.msg)).toBe(expectedMsg)
+      expect(snackBarMock.open).toHaveBeenLastCalledWith(component.msg, 'X', { duration: 5000 })
     })
   })
 })

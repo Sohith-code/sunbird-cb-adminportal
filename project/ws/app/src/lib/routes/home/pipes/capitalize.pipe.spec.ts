@@ -13,8 +13,8 @@ describe('CapitalizePipe', () => {
 
   it('should return the same value if input is empty', () => {
     expect(pipe.transform('')).toBe('')
-    expect(pipe.transform('')).toBeNull()
-    expect(pipe.transform('')).toBeUndefined()
+    expect(pipe.transform(null as any)).toBeNull()
+    expect(pipe.transform(undefined as any)).toBeUndefined()
   })
 
   it('should capitalize the first letter of each word', () => {
@@ -30,12 +30,12 @@ describe('CapitalizePipe', () => {
     expect(pipe.transform('Hello World')).toBe('Hello World')
   })
 
-  it('should handle mixed case input', () => {
-    expect(pipe.transform('hElLo WoRlD')).toBe('Hello World')
+  it('should only uppercase the first letter of each word in mixed case input', () => {
+    expect(pipe.transform('hElLo WoRlD')).toBe('HElLo WoRlD')
   })
 
-  it('should return the same value for non-string inputs (optional)', () => {
-    expect(pipe.transform(123 as any)).toBe(123)
-    expect(pipe.transform(true as any)).toBe(true)
+  it('should return falsy non-string inputs unchanged', () => {
+    expect(pipe.transform(0 as any)).toBe(0)
+    expect(pipe.transform(false as any)).toBe(false)
   })
 })

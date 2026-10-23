@@ -1,5 +1,5 @@
 import { ViaApiComponent } from './via-api.component'
-import { FormBuilder } from '@angular/forms'
+import { FormArray, FormBuilder, FormControl, FormGroup } from '@angular/forms'
 import { MarketplaceService } from '../../services/marketplace.service'
 import { MatSnackBar } from '@angular/material/snack-bar'
 import { ActivatedRoute } from '@angular/router'
@@ -32,6 +32,11 @@ describe('ViaApiComponent', () => {
 
   //   return formArray
   // }
+
+  // the params table child component always seeds an empty key/value row
+  const addEmptyRow = (formArray: FormArray) => {
+    formArray.push(new FormGroup({ key: new FormControl(''), value: new FormControl('') }))
+  }
 
   beforeEach(() => {
     mockFormBuilder = new FormBuilder()
@@ -91,14 +96,14 @@ describe('ViaApiComponent', () => {
       // Trigger params form array construction
       component.constructParamsFormArray()
 
-      // Check the form array
+      // Check the form array: 2 params + 1 empty row
       const paramsFormArray = component.paramsFormArray
-      expect(paramsFormArray.length).toBe(3) // 2 params + 1 empty row
-      expect(paramsFormArray.at(0).get('key')?.value).toBe('param1')
-      expect(paramsFormArray.at(0).get('value')?.value).toBe('value1')
-      expect(paramsFormArray.at(1).get('key')?.value).toBe('param2')
-      expect(paramsFormArray.at(1).get('value')?.value).toBe('value2')
-      expect(paramsFormArray.at(2).get('key')?.value).toBe('')
+      expect(paramsFormArray.length).toBe(3)
+      expect(paramsFormArray.value).toEqual(expect.arrayContaining([
+        { key: 'param1', value: 'value1' },
+        { key: 'param2', value: 'value2' },
+        { key: '', value: '' },
+      ]))
     })
   })
 
@@ -152,11 +157,18 @@ describe('ViaApiComponent', () => {
         apiUrl: 'http://example.com'
       })
 
+      addEmptyRow(component.bodyFormGroup.controls.tableListFormArray as FormArray)
+      addEmptyRow(component.headersFormGroup.controls.tableListFormArray as FormArray)
+      addEmptyRow(component.paramsFormArray)
+
       const config = component.generatCoursesConfiguration()
 
       expect(config.serviceName).toBe('Test Service')
       expect(config.serviceCode).toBe('TEST')
       expect(config.requestMethod).toBe('GET')
+      expect(config.url).toBe('http://example.com')
+      expect(config.isFormData).toBe(false)
+      expect(config.partnerCode).toBe('TEST')
     })
   })
 

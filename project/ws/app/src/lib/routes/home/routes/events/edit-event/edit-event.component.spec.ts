@@ -7,7 +7,7 @@ class MockMatSnackBar {
 }
 
 class MockEventsService {
-	getEventDetails = jest.fn().mockReturnValue(of({
+	getEventDetailsInEditMode = jest.fn().mockReturnValue(of({
 		result: {
 			event: {
 				appIcon: 'mock-icon-url',
@@ -16,8 +16,10 @@ class MockEventsService {
 				learningObjective: 'Mock Agenda',
 				registrationLink: 'https://example.com/meeting',
 				resourceType: 'Webinar',
+				startDate: '2025-03-01',
 				endDate: '2025-03-01',
 				startTime: '10:00',
+				endTime: '11:30:00+05:30',
 				duration: 90,
 				creatorDetails: JSON.stringify([{ name: 'John Doe', email: 'john@example.com', mdoName: 'Test Department' }]),
 				versionKey: 'mock-version-key'
@@ -26,7 +28,9 @@ class MockEventsService {
 	}));
 	crreateAsset = jest.fn().mockReturnValue(of({ result: { identifier: 'mock-content-id' } }));
 	uploadFile = jest.fn().mockReturnValue(of({ result: { artifactUrl: 'mock-artifact-url' } }));
-	updateEvent = jest.fn().mockReturnValue(of({ result: { identifier: 'mock-event-id' } }));
+	updateEvent = jest.fn().mockReturnValue(of({ result: { identifier: 'mock-event-id', versionKey: 'new-version-key' } }));
+	publishEvent = jest.fn().mockReturnValue(of({ result: {} }));
+	getSlwResourceTypeDetail = jest.fn().mockReturnValue(of({ slwResourceTypeDetails: [] }));
 }
 
 class MockMatDialog {
@@ -54,6 +58,7 @@ class MockChangeDetectorRef {
 
 class MockActivatedRoute {
 	params = of({ id: 'mock-event-id' });
+	queryParams = of({ filter: 'upcoming' });
 	snapshot = {
 		data: {
 			configService: {
@@ -125,6 +130,8 @@ describe('EditEventComponent', () => {
 	})
 
 	afterEach(() => {
+		jest.useRealTimers()
+		jest.restoreAllMocks()
 		jest.clearAllMocks()
 	})
 
@@ -137,7 +144,7 @@ describe('EditEventComponent', () => {
 	})
 
 	test('should load event details on init', () => {
-		expect(mockEventsService.getEventDetails).toHaveBeenCalledWith('mock-event-id')
+		expect(mockEventsService.getEventDetailsInEditMode).toHaveBeenCalledWith('mock-event-id')
 		expect(component.eventObject).toBeDefined()
 		expect(component.createEventForm.get('eventTitle')?.value).toBe('Mock Event')
 		expect(component.createEventForm.get('description')?.value).toBe('Mock Description')
@@ -236,6 +243,9 @@ describe('EditEventComponent', () => {
 			}
 		}
 
+		// clear presenters loaded from the event details in the constructor
+		component.presentersArr = []
+		component.participantsArr = []
 		component.addPresenters(mockResponseObj)
 
 		expect(component.presentersArr.length).toBe(1)
@@ -256,7 +266,7 @@ describe('EditEventComponent', () => {
 		component.createEventForm.get('description')?.setValue('Updated Description')
 		component.createEventForm.get('agenda')?.setValue('Updated Agenda')
 		component.createEventForm.get('eventType')?.setValue('Webinar')
-		component.createEventForm.get('eventDate')?.setValue(new Date('2025-03-01'))
+		component.createEventForm.get('eventDate')?.setValue(new Date('2099-03-01'))
 		component.createEventForm.get('eventTime')?.setValue('10:00')
 		component.createEventForm.get('eventDurationHours')?.setValue(1)
 		component.createEventForm.get('eventDurationMinutes')?.setValue(30)
@@ -265,24 +275,38 @@ describe('EditEventComponent', () => {
 		component.eventimageURL = 'mock-image-url'
 		component.eventId = 'mock-event-id'
 		component.eventObject = { versionKey: 'mock-version-key' }
+		jest.useFakeTimers()
 
 		component.onSubmit()
 
-		expect(component.disableCreateButton).toBe(true)
+		// update succeeded synchronously: button re-enabled, loader shown until publish completes
+		expect(component.disableCreateButton).toBe(false)
 		expect(component.displayLoader).toBe(true)
 		expect(mockEventsService.updateEvent).toHaveBeenCalled()
+		expect(mockEventsService.publishEvent).toHaveBeenCalledWith('mock-event-id', {
+			request: { event: { versionKey: 'new-version-key', status: 'Live', identifier: 'mock-event-id' } },
+		})
+
+		jest.advanceTimersByTime(5000)
+		expect(component.displayLoader).toBe(false)
+		expect(mockSnackBar.open).toHaveBeenCalledWith('Event details are successfuly updated.', 'X', { duration: 5000 })
+		expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/events'])
 
 		// Check the request payload
 		const payload = mockEventsService.updateEvent.mock.calls[0][1]
 		expect(payload.request.event.name).toBe('Updated Event')
 		expect(payload.request.event.description).toBe('Updated Description')
 		expect(payload.request.event.learningObjective).toBe('Updated Agenda')
+		// Webinar scheduled in the future: link goes to registrationLink
 		expect(payload.request.event.registrationLink).toBe('https://example.com/updated')
+		expect(payload.request.event.recordedLinks).toBeUndefined()
 		expect(payload.request.event.identifier).toBe('mock-event-id')
 		expect(payload.request.event.versionKey).toBe('mock-version-key')
 	})
 
 	test('should handle form submission with zero duration', () => {
+		component.createEventForm.get('eventDate')?.setValue(new Date('2025-03-01'))
+		component.createEventForm.get('eventTime')?.setValue('10:00')
 		component.createEventForm.get('eventDurationHours')?.setValue(0)
 		component.createEventForm.get('eventDurationMinutes')?.setValue(0)
 

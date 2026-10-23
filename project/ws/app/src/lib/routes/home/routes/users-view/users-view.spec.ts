@@ -32,7 +32,8 @@ describe('UsersViewComponent', () => {
         parent: {
           data: {
             configService: {
-              userProfile: { userId: 'test-user-id' }
+              userProfile: { userId: 'test-user-id' },
+              unMappedUser: { rootOrg: { rootOrgId: 'root-org-id', id: 'org-id' } }
             }
           }
         }
@@ -54,7 +55,7 @@ describe('UsersViewComponent', () => {
     }
 
     mockUsersService = {
-      getAllKongUsersPaginated: jest.fn(),
+      getAllKongUsersPaginated: jest.fn().mockReturnValue(of({ result: { response: { count: 0, content: [] } } })),
       blockUser: jest.fn(),
       newBlockUserKong: jest.fn(),
       newUnBlockUserKong: jest.fn()
@@ -96,6 +97,9 @@ describe('UsersViewComponent', () => {
     expect(component.rootOrgId).toBe('root-org-id')
     expect(component.tabledata).toBeDefined()
     expect(component.tabledata.columns.length).toBe(3)
+    expect(component.currentUser).toBe('test-user-id')
+    expect(component.portalProfile).toEqual({ id: 'profile-data' })
+    expect(mockUsersService.getAllKongUsersPaginated).toHaveBeenCalledWith('root-org-id', 1, 20, 0, '')
   })
 
   describe('filter', () => {
@@ -176,6 +180,7 @@ describe('UsersViewComponent', () => {
       }
 
       mockUsersService.getAllKongUsersPaginated.mockReturnValue(of(mockResponse))
+      component.rootOrgId = 'root-org-id'
 
       // Call activeUsers
       component.activeUsers('')
@@ -198,6 +203,7 @@ describe('UsersViewComponent', () => {
       expect(component.activeUsersData[0].fullname).toBe('Test')
       expect(component.activeUsersData[0].userId).toBe('user1')
       expect(component.activeUsersData[0].roles).toBe('ROLE1, ROLE2')
+      expect(component.activeUsersData[0].email).toBe('transformed-primary@example.com')
     })
   })
 
@@ -228,6 +234,8 @@ describe('UsersViewComponent', () => {
       }
 
       mockUsersService.getAllKongUsersPaginated.mockReturnValue(of(mockResponse))
+      component.rootOrgId = 'root-org-id'
+      component.currentFilter = 'inactive'
 
       // Call inActiveUsers
       component.inActiveUsers('')
@@ -293,8 +301,23 @@ describe('UsersViewComponent', () => {
         roles: ['ADMIN', 'CONTENT_CREATOR']
       }))
 
-      // Verify snackBar was called
+      // Verify snackBar was called and list refreshed
       expect(mockSnackBar.open).toHaveBeenCalledWith('User blocked successfully')
+      expect(mockUsersService.getAllKongUsersPaginated).toHaveBeenCalled()
+    })
+
+    it('should handle unblock action', () => {
+      mockUsersService.blockUser.mockReturnValue(of({ result: { response: 'ok' } }))
+      component.menuActions({ action: 'unblock', row: { userId: 'u1', role: ['USER'] } })
+      expect(mockUsersService.blockUser).toHaveBeenCalledWith(expect.objectContaining({ isBlocked: false, roles: ['USER'] }))
+      expect(mockSnackBar.open).toHaveBeenCalledWith('Updated successfully !')
+    })
+
+    it('should show message when deactivation fails', () => {
+      mockUsersService.newBlockUserKong.mockReturnValue(of({ params: { status: 'FAILED' } }))
+      component.menuActions({ action: 'deactive', row: { userId: 'u1' } })
+      expect(mockLoaderService.changeLoad.next).toHaveBeenCalledWith(false)
+      expect(mockSnackBar.open).toHaveBeenCalledWith('Update unsuccess!')
     })
 
     it('should handle deactive action', () => {

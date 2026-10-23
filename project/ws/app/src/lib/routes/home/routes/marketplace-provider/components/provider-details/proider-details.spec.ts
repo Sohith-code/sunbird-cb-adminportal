@@ -5,35 +5,49 @@ import { MarketplaceService } from '../../services/marketplace.service'
 import { MatSnackBar } from '@angular/material/snack-bar'
 import { LoaderService } from '../../../../services/loader.service'
 import { DatePipe } from '@angular/common'
-import { of } from 'rxjs'
-import { HttpErrorResponse } from '@angular/common/http'
-
-jest.mock('../../services/marketplace.service')
-jest.mock('@angular/material/snack-bar')
-jest.mock('../../../../services/loader.service')
-jest.mock('@angular/router')
+import { of, throwError } from 'rxjs'
 
 describe('ProviderDetailsComponent', () => {
   let component: ProviderDetailsComponent
-  let mockMarketplaceService: jest.Mocked<MarketplaceService>
-  let mockSnackBar: jest.Mocked<MatSnackBar>
-  let mockLoaderService: jest.Mocked<LoaderService>
-  let mockRouter: jest.Mocked<Router>
+  let mockMarketplaceService: any
+  let mockSnackBar: any
+  let mockLoaderService: any
+  let mockRouter: any
+
+  const fillValidForm = () => {
+    component.providerFormGroup.patchValue({
+      contentPartnerName: 'Test Partner',
+      partnerCode: '123456',
+      websiteUrl: 'http://test.com',
+      description: 'Test description',
+    })
+    component.addTips('Tip 1')
+    component.imageUrl = 'http://image.com'
+  }
 
   beforeEach(() => {
-    mockMarketplaceService = new MarketplaceService(null as any) as jest.Mocked<MarketplaceService>
-    mockSnackBar = new MatSnackBar(null as any, null as any, null as any, null as any, null as any, null as any) as jest.Mocked<MatSnackBar>
-    mockLoaderService = new LoaderService() as jest.Mocked<LoaderService>
-    mockRouter = new Router() as jest.Mocked<Router>
+    mockMarketplaceService = {
+      createProvider: jest.fn(),
+      updateProvider: jest.fn(),
+      uploadThumbNail: jest.fn(),
+      uploadCIOSContract: jest.fn(),
+    }
+    mockSnackBar = { open: jest.fn() }
+    mockLoaderService = { changeLoad: { next: jest.fn() } }
+    mockRouter = { navigate: jest.fn(), navigateByUrl: jest.fn() }
 
     component = new ProviderDetailsComponent(
       new FormBuilder(),
-      mockRouter,
-      mockMarketplaceService,
-      mockSnackBar,
+      mockRouter as Router,
+      mockMarketplaceService as MarketplaceService,
+      mockSnackBar as MatSnackBar,
       new DatePipe('en-US'),
-      mockLoaderService
+      mockLoaderService as LoaderService
     )
+  })
+
+  afterEach(() => {
+    jest.useRealTimers()
   })
 
   it('should create the component', () => {
@@ -65,60 +79,62 @@ describe('ProviderDetailsComponent', () => {
       }
     })
 
-    expect(component.providerFormGroup.value.contentPartnerName).toBe('Test Partner')
-    expect(component.providerFormGroup.value.partnerCode).toBe('123456')
-    expect(component.providerFormGroup.value.websiteUrl).toBe('http://test.com')
-    expect(component.providerFormGroup.value.description).toBe('Test description')
+    const rawValue = component.providerFormGroup.getRawValue()
+    expect(rawValue.contentPartnerName).toBe('Test Partner')
+    // partner code is disabled once patched, so it is only part of the raw value
+    expect(component.providerFormGroup.controls.partnerCode.disabled).toBe(true)
+    expect(rawValue.partnerCode).toBe('123456')
+    expect(rawValue.websiteUrl).toBe('http://test.com')
+    expect(rawValue.description).toBe('Test description')
+    expect(rawValue.providerTips).toEqual(['Tip 1', 'Tip 2'])
     expect(component.imageUrl).toBe('http://image.com')
   })
 
   it('should handle valid form submission for new provider', () => {
-    const mockFormValue = {
-      contentPartnerName: 'Test Partner',
-      partnerCode: '123456',
-      websiteUrl: 'http://test.com',
-      description: 'Test description',
-      providerTips: ['Tip 1']
-    }
-    component.providerFormGroup.setValue(mockFormValue)
-    component.imageUrl = 'http://image.com'
-
-    // Mock the service method
-    mockMarketplaceService.createProvider.mockReturnValue(of({}))
+    jest.useFakeTimers()
+    fillValidForm()
+    mockMarketplaceService.createProvider.mockReturnValue(of({ result: { id: 'p1' } }))
 
     component.saveProviderDetails()
 
-    expect(mockMarketplaceService.createProvider).toHaveBeenCalled()
+    expect(mockMarketplaceService.createProvider).toHaveBeenCalledWith(expect.objectContaining({
+      contentPartnerName: 'Test Partner',
+      partnerCode: '123456',
+      providerTips: ['Tip 1'],
+    }))
     expect(mockLoaderService.changeLoad.next).toHaveBeenCalledWith(false)
+    jest.advanceTimersByTime(1000)
     expect(mockSnackBar.open).toHaveBeenCalledWith('Successfully Onboarded')
+    expect(mockRouter.navigate).toHaveBeenCalledWith(['/app/home/marketplace-providers/onboard-partner/p1'])
   })
 
   it('should show an error message when service fails', () => {
-    const errorResponse = new HttpErrorResponse({
+    fillValidForm()
+    mockMarketplaceService.createProvider.mockReturnValue(throwError({
       error: { params: { errMsg: 'Something went wrong' } },
       status: 500,
-      statusText: 'Server Error'
-    })
-
-    // Mock the service method to return an error
-    mockMarketplaceService.createProvider.mockReturnValue(of(errorResponse))
+    }))
 
     component.saveProviderDetails()
 
-    expect(mockSnackBar.open).toHaveBeenCalledWith('Something went wrong, please try again later')
+    expect(mockLoaderService.changeLoad.next).toHaveBeenCalledWith(false)
+    expect(mockSnackBar.open).toHaveBeenCalledWith('Something went wrong')
   })
 
   it('should show snack bar for invalid form submission', () => {
-    component.providerFormGroup.setValue({
+    component.providerFormGroup.patchValue({
       contentPartnerName: '',
       partnerCode: '',
       websiteUrl: '',
       description: '',
-      providerTips: []
     })
+    const uploadSpy = jest.spyOn(component, 'createContentsToUpload')
 
     component.submit()
+    expect(uploadSpy).not.toHaveBeenCalled()
+    expect(component.logoTouched).toBe(true)
 
+    component.saveProviderDetails()
     expect(mockSnackBar.open).toHaveBeenCalledWith('Please fill all the mandator fields with proper data')
   })
 
@@ -128,14 +144,22 @@ describe('ProviderDetailsComponent', () => {
   })
 
   it('should handle thumbnail file selection', () => {
-    //const file = new File([''], 'image.png', { type: 'image/png' })
-    const event = { name: 'image.png', size: 500000, type: 'image/png' }
+    const file = new File([new Uint8Array(500000)], 'image.png', { type: 'image/png' })
+    const readSpy = jest.spyOn(FileReader.prototype, 'readAsDataURL').mockImplementation(() => undefined)
 
-    // Simulate thumbnail selection
-    const spy = jest.spyOn(component, 'onThumbNailSelected')
-    component.onThumbNailSelected(event)
+    component.onThumbNailSelected(file)
 
-    expect(spy).toHaveBeenCalled()
+    expect(component.logoTouched).toBe(true)
+    expect(component.thumbnailFile).toBe(file)
+    expect(readSpy).toHaveBeenCalledWith(file)
+    expect(mockSnackBar.open).not.toHaveBeenCalled()
+    readSpy.mockRestore()
+  })
+
+  it('should show error snack bar if thumbnail size is out of range', () => {
+    const file = new File(['small'], 'image.png', { type: 'image/png' })
+    component.onThumbNailSelected(file)
+    expect(mockSnackBar.open).toHaveBeenCalledWith('Please upload image sized between 10 KB and 2 MB')
   })
 
   it('should show error snack bar if invalid file type is uploaded for thumbnail', () => {
@@ -144,7 +168,7 @@ describe('ProviderDetailsComponent', () => {
     expect(mockSnackBar.open).toHaveBeenCalledWith('Please upload svg or png image')
   })
 
-  it('should handle file upload error for PDF', () => {
+  it('should handle file upload for PDF', () => {
     const file = new File([''], 'file.pdf', { type: 'application/pdf' })
     component.onDrop(file)
 
@@ -152,12 +176,19 @@ describe('ProviderDetailsComponent', () => {
     expect(component.fileName).toBe('file.pdf')
   })
 
+  it('should show error snack bar for non PDF file', () => {
+    const file = new File([''], 'file.txt', { type: 'text/plain' })
+    component.onDrop(file)
+    expect(mockSnackBar.open).toHaveBeenCalledWith('Please upload PDF file')
+  })
+
   it('should show error snack bar for invalid PDF file size', () => {
     const largeFile = new File([''], 'large-file.pdf', { type: 'application/pdf' })
-    // largeFile.size = 200 * 1024 * 1024 // 200MB
+    Object.defineProperty(largeFile, 'size', { value: 200 * 1024 * 1024, configurable: true })
 
     component.onDrop(largeFile)
 
     expect(mockSnackBar.open).toHaveBeenCalledWith('file size should not be more than 100 MB')
+    expect(component.pdfUploaded).toBe(false)
   })
 })

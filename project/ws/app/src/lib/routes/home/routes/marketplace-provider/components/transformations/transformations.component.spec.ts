@@ -108,6 +108,7 @@ describe('TransformationsComponent', () => {
 
   describe('Transformation Methods', () => {
     test('upDateTransforamtionDetails should call updateProvider on valid form', () => {
+      jest.useFakeTimers()
       // Mock successful update
       mockMarketplaceService.updateProvider.mockReturnValue(of({}))
 
@@ -119,7 +120,26 @@ describe('TransformationsComponent', () => {
 
       // Assertions
       expect(mockMarketplaceService.updateProvider).toHaveBeenCalled()
-      expect(mockSnackBar.open).toHaveBeenCalledWith(expect.stringContaining('saved successfully'))
+      // success message is shown after a 1s delay
+      jest.advanceTimersByTime(1000)
+      // provider already has a transformation, so the message reports an update
+      expect(mockSnackBar.open).toHaveBeenCalledWith('Transform Content updated successfully.')
+      jest.useRealTimers()
+    })
+
+    test('upDateTransforamtionDetails should report saved when no transformation exists yet', () => {
+      jest.useFakeTimers()
+      mockMarketplaceService.updateProvider.mockReturnValue(of({}))
+      delete component.providerDetalsBeforUpdate.trasformContentJson
+
+      component.upDateTransforamtionDetails()
+
+      expect(mockMarketplaceService.updateProvider).toHaveBeenCalledWith(expect.objectContaining({
+        trasformContentJson: [{ spec: { 'test value': 'path/to/column' } }],
+      }))
+      jest.advanceTimersByTime(1000)
+      expect(mockSnackBar.open).toHaveBeenCalledWith('Transform Content saved successfully.')
+      jest.useRealTimers()
     })
 
     test('upDateTransforamtionDetails should show error on invalid form', () => {
@@ -147,7 +167,10 @@ describe('TransformationsComponent', () => {
         onerror: jest.fn(),
         result: 'header1,header2\nvalue1,value2',
       } as any
-      jest.spyOn(window, 'FileReader').mockImplementation(() => mockFileReader)
+      const fileReaderSpy = jest.spyOn(window, 'FileReader').mockImplementation(() => mockFileReader)
+      // jsdom does not implement URL.createObjectURL
+      const originalCreateObjectURL = (URL as any).createObjectURL
+      ;(URL as any).createObjectURL = jest.fn().mockReturnValue('blob:test')
 
       // Call method
       component.transformationType = ''
@@ -163,6 +186,10 @@ describe('TransformationsComponent', () => {
       // Assertions
       expect(component.fileName).toBe('test.csv')
       expect(component.contentFileUploaded).toBeTruthy()
+      expect(component.certificateUrl).toBe('blob:test')
+
+      ;(URL as any).createObjectURL = originalCreateObjectURL
+      fileReaderSpy.mockRestore()
     })
   })
 

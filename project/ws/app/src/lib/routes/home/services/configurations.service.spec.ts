@@ -1,5 +1,6 @@
 
 import { HttpClient } from '@angular/common/http'
+import { of } from 'rxjs'
 import { CreateMDOService } from './create-mdo.services'
 
 describe('CreateMDOService', () => {
@@ -30,7 +31,7 @@ describe('CreateMDOService', () => {
     const deptName = 'departmentName'
     const expectedResponse = { data: 'response' }
 
-    // httpClientMock.get.mockResolvedValue(expectedResponse)
+    httpClientMock.get.mockReturnValue(of(expectedResponse))
 
     service.getAllSubDepartments(deptName).subscribe(response => {
       expect(response).toEqual(expectedResponse)
@@ -47,7 +48,7 @@ describe('CreateMDOService', () => {
     const loggedInUserId = '123'
     const expectedResponse = { success: true }
 
-    // httpClientMock.post.mockResolvedValue(expectedResponse)
+    httpClientMock.post.mockReturnValue(of(expectedResponse))
 
     service.createDepartment(deptData, deptType, depatment, loggedInUserId).subscribe(response => {
       expect(response).toEqual(expectedResponse)
@@ -76,7 +77,7 @@ describe('CreateMDOService', () => {
     const deptValue = { name: 'Updated Dept' }
     const expectedResponse = { success: true }
 
-    // httpClientMock.patch.mockResolvedValue(expectedResponse)
+    httpClientMock.patch.mockReturnValue(of(expectedResponse))
 
     service.updateDepartment(updateId, deptType, depatment, loggedInUserId, deptValue).subscribe(response => {
       expect(response).toEqual(expectedResponse)
@@ -103,7 +104,7 @@ describe('CreateMDOService', () => {
     const deptRole = { role: 'admin' }
     const expectedResponse = { success: true }
 
-    //httpClientMock.post.mockResolvedValue(expectedResponse)
+    httpClientMock.post.mockReturnValue(of(expectedResponse))
 
     service.assignAdminToDepartment(userId, deptId, deptRole).subscribe(response => {
       expect(response).toEqual(expectedResponse)
@@ -126,7 +127,7 @@ describe('CreateMDOService', () => {
     const deptName = 'deptName'
     const expectedResponse = { success: true }
 
-    // httpClientMock.patch.mockResolvedValue(expectedResponse)
+    httpClientMock.patch.mockReturnValue(of(expectedResponse))
 
     service.migrateDepartment(userId, deptName).subscribe(response => {
       expect(response).toEqual(expectedResponse)

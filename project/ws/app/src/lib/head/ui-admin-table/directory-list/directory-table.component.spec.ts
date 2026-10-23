@@ -4,13 +4,10 @@ import { EventService } from '@sunbird-cb/utils-v2'
 import { MatDialog } from '@angular/material/dialog'
 import { CreateMDOService } from '../../../routes/home/services/create-mdo.services'
 import { DesignationsService } from '../../../routes/create-mdo/routes/designation/services/designations.service'
-import * as _ from 'lodash'
 
-jest.mock('@angular/router')
-jest.mock('@sunbird-cb/utils-v2')
-jest.mock('@angular/material/dialog')
-jest.mock('../../../routes/home/services/create-mdo.services')
-jest.mock('../../../routes/create-mdo/routes/designation/services/designations.service')
+import { of } from 'rxjs'
+import { OrgHierarchyService } from '../services/org-hierarchy.service'
+import { MatSnackBar } from '@angular/material/snack-bar'
 
 describe('UIDirectoryTableComponent', () => {
     let component: UIDirectoryTableComponent
@@ -19,16 +16,29 @@ describe('UIDirectoryTableComponent', () => {
     let dialog: MatDialog
     let createMdoService: CreateMDOService
     let designationsService: DesignationsService
+    let orgHierarchyService: OrgHierarchyService
+    let snackBar: MatSnackBar
 
     beforeEach(() => {
-        router = new Router()
-        events = new EventService(null as any, null as any)
-        dialog = { open: jest.fn().mockReturnValue({ afterClosed: jest.fn() }) } as unknown as MatDialog
-        createMdoService = new CreateMDOService(null as any)
-        designationsService = new DesignationsService(null as any, null as any)
+        router = { navigate: jest.fn() } as unknown as Router
+        events = { raiseInteractTelemetry: jest.fn() } as unknown as EventService
+        dialog = { open: jest.fn().mockReturnValue({ afterClosed: jest.fn().mockReturnValue(of({})) }) } as unknown as MatDialog
+        createMdoService = {
+            getStatesOrMinisteries: jest.fn().mockReturnValue(
+                of({ result: { response: { content: [{ orgName: 'State2' }, { orgName: 'State1' }] } } })
+            ),
+        } as unknown as CreateMDOService
+        designationsService = {
+            getOrgReadData: jest.fn().mockReturnValue(of({ frameworkid: '123' })),
+            getFrameworkInfo: jest.fn().mockReturnValue(
+                of({ result: { framework: { categories: [{ terms: [{ associations: ['assoc1'] }] }] } } })
+            ),
+        } as unknown as DesignationsService
+        orgHierarchyService = {} as unknown as OrgHierarchyService
+        snackBar = { open: jest.fn() } as unknown as MatSnackBar
 
         component = new UIDirectoryTableComponent(
-            router, events, dialog, designationsService, createMdoService
+            router, events, dialog, designationsService, createMdoService, orgHierarchyService, snackBar
         )
     })
 
@@ -46,23 +56,21 @@ describe('UIDirectoryTableComponent', () => {
     })
 
     it('should initialize dropdownList on ngOnInit', () => {
-        // const statesSpy = jest.spyOn(createMdoService, 'getStatesOrMinisteries').mockReturnValue({
-        //     subscribe: jest.fn().mockImplementation((cb: Function) => cb({ result: { response: { content: ['State1', 'State2'] } } }))
-        // })
-
         component.ngOnInit()
 
-        //expect(statesSpy).toHaveBeenCalledWith('state')
-        expect(component.dropdownList.statesList).toEqual(['State1', 'State2'])
+        expect(createMdoService.getStatesOrMinisteries).toHaveBeenCalledWith('state')
+        expect(createMdoService.getStatesOrMinisteries).toHaveBeenCalledWith('ministry')
+        expect(component.dropdownList.statesList).toEqual([{ orgName: 'State1' }, { orgName: 'State2' }])
     })
 
-    it('should apply filter when called', () => {
+    it('should reset filter and emit empty search when filter is cleared', () => {
         const filterSubjectSpy = jest.spyOn(component['filterSubject'], 'next')
-        const filterValue = 'Test'
+        const searchSpy = jest.spyOn(component.searchByEnterKey, 'emit')
 
-        component.applyFilter(filterValue)
+        component.applyFilter('')
 
-        expect(filterSubjectSpy).toHaveBeenCalledWith(filterValue)
+        expect(filterSubjectSpy).toHaveBeenCalledWith('')
+        expect(searchSpy).toHaveBeenCalledWith('')
     })
 
     it('should set moreThanTwoChar to true if filter value length > 2', () => {
@@ -77,18 +85,13 @@ describe('UIDirectoryTableComponent', () => {
 
     it('should open dialog on generateCustRegistrationLink when frameworkId exists', () => {
         const row = { id: 1, qrRegistrationLink: '', registrationLink: '' }
-        // const getOrgReadDataSpy = jest.spyOn(designationsService, 'getOrgReadData').mockReturnValue({
-        //     subscribe: jest.fn().mockImplementation((cb: Function) => cb({ frameworkid: '123' }))
-        // })
-        // const getFrameworkInfoSpy = jest.spyOn(designationsService, 'getFrameworkInfo').mockReturnValue({
-        //     subscribe: jest.fn().mockImplementation((cb: Function) => cb({ result: { framework: { categories: [{ terms: [{ associations: ['assoc1'] }] }] } } }))
-        // })
-
         component.generateCustRegistrationLink(row)
 
-        // expect(getOrgReadDataSpy).toHaveBeenCalledWith(row.id)
-        // expect(getFrameworkInfoSpy).toHaveBeenCalledWith('123')
-        expect(dialog.open).toHaveBeenCalled()
+        expect(designationsService.getOrgReadData).toHaveBeenCalledWith(row.id)
+        expect(designationsService.getFrameworkInfo).toHaveBeenCalledWith('123')
+        expect(dialog.open).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+            data: { type: 'import-igot-master-review' },
+        }))
     })
 
     it('should emit buttonClickAction event when button is clicked', () => {
