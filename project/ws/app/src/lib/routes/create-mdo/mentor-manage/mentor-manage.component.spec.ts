@@ -309,7 +309,7 @@ describe('MentorManageComponent', () => {
       // Act
       const result = component.showEditUser([])
       // Assert
-      expect(result).toBe(true)
+      expect(result).toBe(true) 
     })
 
     it('should return true if isMdoAdmin is false', () => {
