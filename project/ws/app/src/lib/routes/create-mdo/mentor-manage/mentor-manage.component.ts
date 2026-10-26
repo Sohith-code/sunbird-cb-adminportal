@@ -173,14 +173,7 @@ export class MentorManageComponent implements OnInit, OnDestroy {
     }
   }
 
-  showEditUser(roles: any): boolean {
-    if (this.isMdoAdmin) {
-      if (roles && roles.length > 0) {
-        return true
-        //   return (roles.includes('PUBLIC') && roles.length === 1)
-      }
-      // return false
-    }
+  showEditUser(_roles: any): boolean {
     return true
   }
 
