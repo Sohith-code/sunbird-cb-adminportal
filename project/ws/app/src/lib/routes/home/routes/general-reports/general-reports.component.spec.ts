@@ -47,16 +47,18 @@ describe('GeneralReportsComponent', () => {
         ]
         mockGeneralReportsService.getContent.mockReturnValue(of({ reports: { buckets: mockBuckets } }))
 
-        const mockTodayDate = new Date()
-        const mockMaxDate = new Date()
+        const mockNow = new Date('2025-02-25T00:00:00.000Z')
+        jest.useFakeTimers().setSystemTime(mockNow)
         // mockDatePipe.transform.mockReturnValue('2025-02-25')
 
         component.ngOnInit()
 
         // Verify method calls
         expect(mockGeneralReportsService.getContent).toHaveBeenCalled()
-        expect(component.todayDate).toEqual(mockTodayDate)
-        expect(component.maxDate).toEqual(mockMaxDate)
+        expect(component.todayDate).toEqual(mockNow)
+        expect(component.maxDate).toEqual(mockNow)
+
+        jest.useRealTimers()
     })
 
     it('should populate table data correctly when reports are fetched', () => {
