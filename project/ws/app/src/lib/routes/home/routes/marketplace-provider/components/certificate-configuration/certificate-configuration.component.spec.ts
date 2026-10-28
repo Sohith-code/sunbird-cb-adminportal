@@ -38,4 +38,31 @@ describe('CertificateConfigurationComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy()
   })
+
+  describe('onDropCertificate', () => {
+    const originalCreateObjectURL = URL.createObjectURL
+
+    beforeEach(() => {
+      URL.createObjectURL = jest.fn().mockReturnValue('blob:http://localhost/certificate-id')
+    })
+
+    afterEach(() => {
+      URL.createObjectURL = originalCreateObjectURL
+    })
+
+    it('should use the plain blob url for the preview of an svg file', () => {
+      const file = new File(['<svg></svg>'], 'certificate.svg', { type: 'image/svg+xml' })
+      component.onDropCertificate(file)
+      expect(component.certificateUploaded).toBe(true)
+      expect(component.certificateUrl).toBe('blob:http://localhost/certificate-id')
+      expect(component.safeCertificateUrl).toBe('blob:http://localhost/certificate-id')
+    })
+
+    it('should reject a non-svg file without setting a preview', () => {
+      const file = new File(['data'], 'certificate.png', { type: 'image/png' })
+      component.onDropCertificate(file)
+      expect(component.safeCertificateUrl).toBeNull()
+      expect(URL.createObjectURL).not.toHaveBeenCalled()
+    })
+  })
 })

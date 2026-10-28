@@ -94,6 +94,32 @@ describe('CreateUserComponent', () => {
         expect(component.emailLengthVal).toBe(true)
     })
 
+    it('should accept valid emails in the email control', () => {
+        const emailControl = component.createUserForm.controls['email']
+        const validEmails = ['john.doe@gov.in', 'ab@b.co', 'a-b_c.d@x-y.z.com']
+        validEmails.forEach(email => {
+            emailControl.setValue(email)
+            expect(emailControl.hasError('pattern')).toBe(false)
+        })
+    })
+
+    it('should reject invalid emails in the email control', () => {
+        const emailControl = component.createUserForm.controls['email']
+        const invalidEmails = ['a@b.co', '.ab@x.com', 'ab.@x.com', 'ab@-x.com', 'ab@x-.com', 'ab@x.comma', 'ab@x', 'abx.com']
+        invalidEmails.forEach(email => {
+            emailControl.setValue(email)
+            expect(emailControl.hasError('pattern')).toBe(true)
+        })
+    })
+
+    it('should reject a long invalid email quickly', () => {
+        const emailControl = component.createUserForm.controls['email']
+        const start = Date.now()
+        emailControl.setValue(`${'a'.repeat(50000)}!`)
+        expect(emailControl.hasError('pattern')).toBe(true)
+        expect(Date.now() - start).toBeLessThan(1000)
+    })
+
     const form = {
         value: {
             email: 'test@domain.com',

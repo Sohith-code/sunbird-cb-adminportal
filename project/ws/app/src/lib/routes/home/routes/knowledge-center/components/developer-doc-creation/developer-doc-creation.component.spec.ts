@@ -53,4 +53,26 @@ describe('DeveloperDocCreationComponent', () => {
     expect(component.articleId).toBeNull()
     expect(component.subCategoryForm).toBeTruthy()
   })
+
+  describe('stripHtml', () => {
+    it('should remove html tags and decode &nbsp;', () => {
+      expect(component.stripHtml('<p>Hello&nbsp;<strong>World</strong></p>')).toBe('Hello World')
+    })
+
+    it('should collapse whitespace and trim', () => {
+      expect(component.stripHtml('<p>  Hello   </p>\n<p> World </p>')).toBe('Hello World')
+    })
+
+    it('should return an empty string for empty input', () => {
+      expect(component.stripHtml('')).toBe('')
+      expect(component.stripHtml(null as any)).toBe('')
+    })
+
+    it('should handle a long string of unclosed tags quickly', () => {
+      const start = Date.now()
+      const input = '<'.repeat(50000)
+      expect(component.stripHtml(input)).toBe(input)
+      expect(Date.now() - start).toBeLessThan(1000)
+    })
+  })
 })

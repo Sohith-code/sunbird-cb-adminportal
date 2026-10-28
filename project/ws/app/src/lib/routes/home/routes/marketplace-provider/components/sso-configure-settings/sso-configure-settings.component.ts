@@ -328,9 +328,10 @@ export class SsoConfigureSettingsComponent implements OnInit {
 
     if (typeof error === 'string') {
       try {
-        const jsonMatch = error.match(/{.*}/)
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0])
+        const start = error.indexOf('{')
+        const end = error.lastIndexOf('}')
+        if (start !== -1 && end > start) {
+          const parsed = JSON.parse(error.slice(start, end + 1))
           return parsed.errorMessage || error
         }
       } catch {
