@@ -334,7 +334,7 @@ export class EditUserDetailsDialogComponent implements OnInit {
           delete payload.request.profileDetails.professionalDetails[0].verifiedKarmayogi
         }
 
-        this.usersService.extPatchUser(payload).subscribe(() => resolve(), (err: any) => reject(err))
+        this.usersService.extPatchUser(payload).subscribe(() => resolve(), (err: any) => reject(this.toRejectionError(err)))
       }))
     }
 
@@ -364,7 +364,7 @@ export class EditUserDetailsDialogComponent implements OnInit {
         const cadrePayload: any = {
           request: { userId: this.user.userId, profileDetails },
         }
-        this.usersService.extPatchUser(cadrePayload).subscribe(() => resolve(), (err: any) => reject(err))
+        this.usersService.extPatchUser(cadrePayload).subscribe(() => resolve(), (err: any) => reject(this.toRejectionError(err)))
       }))
     }
 
@@ -385,12 +385,17 @@ export class EditUserDetailsDialogComponent implements OnInit {
           },
         }
         delete extPayload.request.profileDetails.professionalDetails[0]?.verifiedKarmayogi
-        this.usersService.extPatchUser(extPayload).subscribe(() => resolve(), (err: any) => reject(err))
+        this.usersService.extPatchUser(extPayload).subscribe(() => resolve(), (err: any) => reject(this.toRejectionError(err)))
       }))
     }
 
     // Execute sequentially
     this.executeSequential(requests, 0)
+  }
+
+  private toRejectionError(err: any): Error {
+    const error = new Error(err?.message ?? 'Request failed')
+    return Object.assign(error, err)
   }
 
   private executeSequential(requests: Array<() => Promise<void>>, idx: number): void {
