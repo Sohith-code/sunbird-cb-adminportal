@@ -52,4 +52,45 @@ describe('SsoConfigureSettingsComponent', () => {
     expect(component.attributesOptionsList).toEqual(attributes)
     expect(component.ssoSettingsForm.get('ssoProtocol')?.value).toBe('saml')
   })
+
+  describe('extractErrorMessage', () => {
+    it('should return a default message when error is empty', () => {
+      expect(component.extractErrorMessage(null)).toBe('Something went wrong')
+    })
+
+    it('should return errorMessage from an error object', () => {
+      expect(component.extractErrorMessage({ errorMessage: 'Invalid entity id' })).toBe('Invalid entity id')
+    })
+
+    it('should extract errorMessage from JSON embedded in a string', () => {
+      const error = 'Request failed: {"errorMessage":"Invalid certificate"}'
+      expect(component.extractErrorMessage(error)).toBe('Invalid certificate')
+    })
+
+    it('should extract errorMessage from JSON spanning multiple lines', () => {
+      const error = 'Request failed: {\n  "errorMessage": "Invalid certificate"\n}'
+      expect(component.extractErrorMessage(error)).toBe('Invalid certificate')
+    })
+
+    it('should return the original string when the JSON has no errorMessage', () => {
+      const error = 'Request failed: {"code":400}'
+      expect(component.extractErrorMessage(error)).toBe(error)
+    })
+
+    it('should return the original string when the embedded JSON is invalid', () => {
+      const error = 'Request failed: {not json}'
+      expect(component.extractErrorMessage(error)).toBe(error)
+    })
+
+    it('should return a default message for a string without JSON', () => {
+      expect(component.extractErrorMessage('plain error')).toBe('Something went wrong')
+      expect(component.extractErrorMessage('} before {')).toBe('Something went wrong')
+    })
+
+    it('should handle a long string of unmatched braces quickly', () => {
+      const start = Date.now()
+      expect(component.extractErrorMessage('{'.repeat(50000))).toBe('Something went wrong')
+      expect(Date.now() - start).toBeLessThan(1000)
+    })
+  })
 })
