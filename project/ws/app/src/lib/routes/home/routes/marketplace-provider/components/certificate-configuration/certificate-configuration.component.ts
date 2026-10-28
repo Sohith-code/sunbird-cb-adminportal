@@ -2,7 +2,6 @@ import { Component, EventEmitter, Input, Output, ViewChild, ElementRef, OnChange
 import { FormBuilder, FormGroup, Validators } from '@angular/forms'
 import { MatDialog } from '@angular/material/dialog'
 import { MatSnackBar } from '@angular/material/snack-bar'
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser'
 import { MarketplaceService } from '../../services/marketplace.service'
 import * as _ from 'lodash'
 import { ConformationPopupComponent } from '../../dialogs/conformation-popup/conformation-popup.component'
@@ -33,7 +32,7 @@ export class CertificateConfigurationComponent implements OnChanges {
 
   contentFile: any
   certificateUrl = ''
-  safeCertificateUrl: SafeResourceUrl | null = null
+  safeCertificateUrl: string | null = null
   fileName = ''
   dialogRef: any
   providerDetalsBeforUpdate: any
@@ -57,8 +56,7 @@ export class CertificateConfigurationComponent implements OnChanges {
     private marketPlaceSvc: MarketplaceService,
     private formBuilder: FormBuilder,
     private snackBar: MatSnackBar,
-    private dialog: MatDialog,
-    public sanitizer: DomSanitizer
+    private dialog: MatDialog
   ) {
     this.initializeForm()
   }
@@ -82,7 +80,7 @@ export class CertificateConfigurationComponent implements OnChanges {
       this.certificateUploaded = true
       this.certificateUrl = this.generatePublicUrl(this.providerDetalsBeforUpdate.certificateTemplateUrl)
       this.fileName = this.getImageName(this.providerDetalsBeforUpdate.certificateTemplateUrl)
-      this.safeCertificateUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.certificateUrl)
+      this.safeCertificateUrl = this.certificateUrl
 
       const modifiedUrl = this.updateBaseOfUrl(this.certificateUrl)
       fetch(modifiedUrl)
@@ -120,7 +118,7 @@ export class CertificateConfigurationComponent implements OnChanges {
     } else {
       this.contentFile = file
       this.certificateUrl = URL.createObjectURL(file)
-      this.safeCertificateUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.certificateUrl)
+      this.safeCertificateUrl = this.certificateUrl
       this.certificateUploaded = true
 
       // If logo is already uploaded, merge it with certificate
@@ -350,7 +348,7 @@ export class CertificateConfigurationComponent implements OnChanges {
 
       // Update certificate preview URL
       this.certificateUrl = URL.createObjectURL(updatedBlob)
-      this.safeCertificateUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.certificateUrl)
+      this.safeCertificateUrl = this.certificateUrl
 
     } catch (error: any) { }
   }
@@ -521,7 +519,7 @@ export class CertificateConfigurationComponent implements OnChanges {
         this.fileName = file.name
 
         this.certificateUrl = URL.createObjectURL(file)
-        this.safeCertificateUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.certificateUrl)
+        this.safeCertificateUrl = this.certificateUrl
         this.certificateUploaded = true
 
         if (this.logoUploaded && this.selectedLogoImage) {
