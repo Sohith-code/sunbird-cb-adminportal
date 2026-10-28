@@ -117,7 +117,7 @@ export class UsersService {
             }
           })
         }
-        return [...new Set(allRoles)].sort()
+        return [...new Set(allRoles)].sort((a, b) => a.localeCompare(b))
       }),
     )
   }

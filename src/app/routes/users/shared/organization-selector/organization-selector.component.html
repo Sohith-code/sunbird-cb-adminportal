@@ -1,6 +1,6 @@
 <mat-form-field class="full-width" appearance="outline" floatLabel="always">
-  <input matInput [formControl]="searchControl" [matAutocomplete]="orgAuto"
-    placeholder="Type to search organizations..." (focus)="onFocus()">
+  <input id="org-search-input" matInput [formControl]="searchControl" [matAutocomplete]="orgAuto"
+    placeholder="Type to search organizations..." aria-label="Search organizations" (focus)="onFocus()">
   <button mat-icon-button matSuffix *ngIf="searchControl.value" (click)="clear()" type="button">
     <mat-icon>close</mat-icon>
   </button>
